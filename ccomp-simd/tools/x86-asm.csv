@@ -1,0 +1,1130 @@
+mnemonic,op1,op2,op3,op4,iext,tested f,modif f,def f,undef f,f values,"description, notes"
+ADD,r/m8,r8,,,,,o..szapc,o..szapc,,,Add
+ADD,r/m16/32,r16/32,,,,,o..szapc,o..szapc,,,Add
+ADD,r8,r/m8,,,,,o..szapc,o..szapc,,,Add
+ADD,r16/32,r/m16/32,,,,,o..szapc,o..szapc,,,Add
+ADD,AL,imm8,,,,,o..szapc,o..szapc,,,Add
+ADD,eAX,imm16/32,,,,,o..szapc,o..szapc,,,Add
+PUSH,ES,,,,,,,,,,"Push Word, Doubleword or Quadword Onto the Stack"
+POP,ES,,,,,,,,,,Pop a Value from the Stack
+OR,r/m8,r8,,,,,o..szapc,o..sz.pc,.....a..,o......c,Logical Inclusive OR
+OR,r/m16/32,r16/32,,,,,o..szapc,o..sz.pc,.....a..,o......c,Logical Inclusive OR
+OR,r8,r/m8,,,,,o..szapc,o..sz.pc,.....a..,o......c,Logical Inclusive OR
+OR,r16/32,r/m16/32,,,,,o..szapc,o..sz.pc,.....a..,o......c,Logical Inclusive OR
+OR,AL,imm8,,,,,o..szapc,o..sz.pc,.....a..,o......c,Logical Inclusive OR
+OR,eAX,imm16/32,,,,,o..szapc,o..sz.pc,.....a..,o......c,Logical Inclusive OR
+PUSH,CS,,,,,,,,,,"Push Word, Doubleword or Quadword Onto the Stack"
+Two-byte Instructions,,,,,,,,,,,
+ADC,r/m8,r8,,,,.......c,o..szapc,o..szapc,,,Add with Carry
+ADC,r/m16/32,r16/32,,,,.......c,o..szapc,o..szapc,,,Add with Carry
+ADC,r8,r/m8,,,,.......c,o..szapc,o..szapc,,,Add with Carry
+ADC,r16/32,r/m16/32,,,,.......c,o..szapc,o..szapc,,,Add with Carry
+ADC,AL,imm8,,,,.......c,o..szapc,o..szapc,,,Add with Carry
+ADC,eAX,imm16/32,,,,.......c,o..szapc,o..szapc,,,Add with Carry
+PUSH,SS,,,,,,,,,,"Push Word, Doubleword or Quadword Onto the Stack"
+POP,SS,,,,,,,,,,Pop a Value from the Stack
+SBB,r/m8,r8,,,,.......c,o..szapc,o..szapc,,,Integer Subtraction with Borrow
+SBB,r/m16/32,r16/32,,,,.......c,o..szapc,o..szapc,,,Integer Subtraction with Borrow
+SBB,r8,r/m8,,,,.......c,o..szapc,o..szapc,,,Integer Subtraction with Borrow
+SBB,r16/32,r/m16/32,,,,.......c,o..szapc,o..szapc,,,Integer Subtraction with Borrow
+SBB,AL,imm8,,,,.......c,o..szapc,o..szapc,,,Integer Subtraction with Borrow
+SBB,eAX,imm16/32,,,,.......c,o..szapc,o..szapc,,,Integer Subtraction with Borrow
+PUSH,DS,,,,,,,,,,"Push Word, Doubleword or Quadword Onto the Stack"
+POP,DS,,,,,,,,,,Pop a Value from the Stack
+AND,r/m8,r8,,,,,o..szapc,o..sz.pc,.....a..,o......c,Logical AND
+AND,r/m16/32,r16/32,,,,,o..szapc,o..sz.pc,.....a..,o......c,Logical AND
+AND,r8,r/m8,,,,,o..szapc,o..sz.pc,.....a..,o......c,Logical AND
+AND,r16/32,r/m16/32,,,,,o..szapc,o..sz.pc,.....a..,o......c,Logical AND
+AND,AL,imm8,,,,,o..szapc,o..sz.pc,.....a..,o......c,Logical AND
+AND,eAX,imm16/32,,,,,o..szapc,o..sz.pc,.....a..,o......c,Logical AND
+ES,ES,,,,,,,,,,ES segment override prefix
+DAA,AL,,,,,.....a.c,o..szapc,...szapc,o.......,,Decimal Adjust AL after Addition
+SUB,r/m8,r8,,,,,o..szapc,o..szapc,,,Subtract
+SUB,r/m16/32,r16/32,,,,,o..szapc,o..szapc,,,Subtract
+SUB,r8,r/m8,,,,,o..szapc,o..szapc,,,Subtract
+SUB,r16/32,r/m16/32,,,,,o..szapc,o..szapc,,,Subtract
+SUB,AL,imm8,,,,,o..szapc,o..szapc,,,Subtract
+SUB,eAX,imm16/32,,,,,o..szapc,o..szapc,,,Subtract
+CS,CS,,,,,,,,,,CS segment override prefix
+DAS,AL,,,,,.....a.c,o..szapc,...szapc,o.......,,Decimal Adjust AL after Subtraction
+XOR,r/m8,r8,,,,,o..szapc,o..sz.pc,.....a..,o......c,Logical Exclusive OR
+XOR,r/m16/32,r16/32,,,,,o..szapc,o..sz.pc,.....a..,o......c,Logical Exclusive OR
+XOR,r8,r/m8,,,,,o..szapc,o..sz.pc,.....a..,o......c,Logical Exclusive OR
+XOR,r16/32,r/m16/32,,,,,o..szapc,o..sz.pc,.....a..,o......c,Logical Exclusive OR
+XOR,AL,imm8,,,,,o..szapc,o..sz.pc,.....a..,o......c,Logical Exclusive OR
+XOR,eAX,imm16/32,,,,,o..szapc,o..sz.pc,.....a..,o......c,Logical Exclusive OR
+SS,SS,,,,,,,,,,SS segment override prefix
+AAA,AL,AH,,,,.....a..,o..szapc,.....a.c,o..sz.p.,,ASCII Adjust After Addition
+CMP,r/m8,r8,,,,,o..szapc,o..szapc,,,Compare Two Operands
+CMP,r/m16/32,r16/32,,,,,o..szapc,o..szapc,,,Compare Two Operands
+CMP,r8,r/m8,,,,,o..szapc,o..szapc,,,Compare Two Operands
+CMP,r16/32,r/m16/32,,,,,o..szapc,o..szapc,,,Compare Two Operands
+CMP,AL,imm8,,,,,o..szapc,o..szapc,,,Compare Two Operands
+CMP,eAX,imm16/32,,,,,o..szapc,o..szapc,,,Compare Two Operands
+DS,DS,,,,,,,,,,DS segment override prefix
+AAS,AL,AH,,,,.....a..,o..szapc,.....a.c,o..sz.p.,,ASCII Adjust AL After Subtraction
+INC,r16/32,,,,,,o..szap.,o..szap.,,,Increment by 1
+DEC,r16/32,,,,,,o..szap.,o..szap.,,,Decrement by 1
+PUSH,r16/32,,,,,,,,,,"Push Word, Doubleword or Quadword Onto the Stack"
+POP,r16/32,,,,,,,,,,Pop a Value from the Stack
+PUSHA,AX,CX,DX,...,,,,,,,Push All General-Purpose Registers
+PUSHAD,EAX,ECX,EDX,...,,,,,,,Push All General-Purpose Registers
+POPA,DI,SI,BP,...,,,,,,,Pop All General-Purpose Registers
+POPAD,EDI,ESI,EBP,...,,,,,,,Pop All General-Purpose Registers
+BOUND,r16/32,m16/32&16/32,eFlags,,,,..i.....,..i.....,,..i.....,Check Array Index Against Bounds
+ARPL,r/m16,r16,,,,,....z...,....z...,,,Adjust RPL Field of Segment Selector
+FS,FS,,,,,,,,,,FS segment override prefix
+GS,GS,,,,,,,,,,GS segment override prefix
+no mnemonic,,,,,,,,,,,Operand-size override prefix
+no mnemonic,,,,,sse2,,,,,,Precision-size override prefix
+no mnemonic,,,,,,,,,,,Address-size override prefix
+PUSH,imm16/32,,,,,,,,,,"Push Word, Doubleword or Quadword Onto the Stack"
+IMUL,r16/32,r/m16/32,imm16/32,,,,o..szapc,o......c,...szap.,,Signed Multiply
+PUSH,imm8,,,,,,,,,,"Push Word, Doubleword or Quadword Onto the Stack"
+IMUL,r16/32,r/m16/32,imm8,,,,o..szapc,o......c,...szap.,,Signed Multiply
+INS,m8,DX,,,,.d......,,,,,Input from Port to String
+INSB,m8,DX,,,,,,,,,
+INS,m16,DX,,,,.d......,,,,,Input from Port to String
+INSW,m16,DX,,,,,,,,,
+INS,m16/32,DX,,,,.d......,,,,,Input from Port to String
+INSD,m32,DX,,,,,,,,,
+OUTS,DX,m8,,,,.d......,,,,,Output String to Port
+OUTSB,DX,m8,,,,,,,,,
+OUTS,DX,m16,,,,.d......,,,,,Output String to Port
+OUTSW,DX,m16,,,,,,,,,
+OUTS,DX,m16/32,,,,.d......,,,,,Output String to Port
+OUTSD,DX,m32,,,,,,,,,
+JO,rel8,,,,,o.......,,,,,Jump short if overflow (OF=1)
+JNO,rel8,,,,,o.......,,,,,Jump short if not overflow (OF=0)
+JB,rel8,,,,,.......c,,,,,Jump short if below/not above or equal/carry (CF=1)
+JNAE,rel8,,,,,,,,,,
+JC,rel8,,,,,,,,,,
+JNB,rel8,,,,,.......c,,,,,Jump short if not below/above or equal/not carry (CF=0)
+JAE,rel8,,,,,,,,,,
+JNC,rel8,,,,,,,,,,
+JZ,rel8,,,,,....z...,,,,,Jump short if zero/equal (ZF=0)
+JE,rel8,,,,,,,,,,
+JNZ,rel8,,,,,....z...,,,,,Jump short if not zero/not equal (ZF=1)
+JNE,rel8,,,,,,,,,,
+JBE,rel8,,,,,....z..c,,,,,Jump short if below or equal/not above (CF=1 AND ZF=1)
+JNA,rel8,,,,,,,,,,
+JNBE,rel8,,,,,....z..c,,,,,Jump short if not below or equal/above (CF=0 AND ZF=0)
+JA,rel8,,,,,,,,,,
+JS,rel8,,,,,...s....,,,,,Jump short if sign (SF=1)
+JNS,rel8,,,,,...s....,,,,,Jump short if not sign (SF=0)
+JP,rel8,,,,,......p.,,,,,Jump short if parity/parity even (PF=1)
+JPE,rel8,,,,,,,,,,
+JNP,rel8,,,,,......p.,,,,,Jump short if not parity/parity odd
+JPO,rel8,,,,,,,,,,
+JL,rel8,,,,,o..s....,,,,,Jump short if less/not greater (SF!=OF)
+JNGE,rel8,,,,,,,,,,
+JNL,rel8,,,,,o..s....,,,,,Jump short if not less/greater or equal (SF=OF)
+JGE,rel8,,,,,,,,,,
+JLE,rel8,,,,,o..sz...,,,,,Jump short if less or equal/not greater ((ZF=1) OR (SF!=OF))
+JNG,rel8,,,,,,,,,,
+JNLE,rel8,,,,,o..sz...,,,,,Jump short if not less nor equal/greater ((ZF=0) AND (SF=OF))
+JG,rel8,,,,,,,,,,
+ADD,r/m8,imm8,,,,,o..szapc,o..szapc,,,Add
+OR,r/m8,imm8,,,,,o..szapc,o..sz.pc,.....a..,o......c,Logical Inclusive OR
+ADC,r/m8,imm8,,,,.......c,o..szapc,o..szapc,,,Add with Carry
+SBB,r/m8,imm8,,,,.......c,o..szapc,o..szapc,,,Integer Subtraction with Borrow
+AND,r/m8,imm8,,,,,o..szapc,o..sz.pc,.....a..,o......c,Logical AND
+SUB,r/m8,imm8,,,,,o..szapc,o..szapc,,,Subtract
+XOR,r/m8,imm8,,,,,o..szapc,o..sz.pc,.....a..,o......c,Logical Exclusive OR
+CMP,r/m8,imm8,,,,,o..szapc,o..szapc,,,Compare Two Operands
+ADD,r/m16/32,imm16/32,,,,,o..szapc,o..szapc,,,Add
+OR,r/m16/32,imm16/32,,,,,o..szapc,o..sz.pc,.....a..,o......c,Logical Inclusive OR
+ADC,r/m16/32,imm16/32,,,,.......c,o..szapc,o..szapc,,,Add with Carry
+SBB,r/m16/32,imm16/32,,,,.......c,o..szapc,o..szapc,,,Integer Subtraction with Borrow
+AND,r/m16/32,imm16/32,,,,,o..szapc,o..sz.pc,.....a..,o......c,Logical AND
+SUB,r/m16/32,imm16/32,,,,,o..szapc,o..szapc,,,Subtract
+XOR,r/m16/32,imm16/32,,,,,o..szapc,o..sz.pc,.....a..,o......c,Logical Exclusive OR
+CMP,r/m16/32,imm16/32,,,,,o..szapc,o..szapc,,,Compare Two Operands
+ADD,r/m8,imm8,,,,,o..szapc,o..szapc,,,Add
+OR,r/m8,imm8,,,,,o..szapc,o..sz.pc,.....a..,o......c,Logical Inclusive OR
+ADC,r/m8,imm8,,,,.......c,o..szapc,o..szapc,,,Add with Carry
+SBB,r/m8,imm8,,,,.......c,o..szapc,o..szapc,,,Integer Subtraction with Borrow
+AND,r/m8,imm8,,,,,o..szapc,o..sz.pc,.....a..,o......c,Logical AND
+SUB,r/m8,imm8,,,,,o..szapc,o..szapc,,,Subtract
+XOR,r/m8,imm8,,,,,o..szapc,o..sz.pc,.....a..,o......c,Logical Exclusive OR
+CMP,r/m8,imm8,,,,,o..szapc,o..szapc,,,Compare Two Operands
+ADD,r/m16/32,imm8,,,,,o..szapc,o..szapc,,,Add
+OR,r/m16/32,imm8,,,,,o..szapc,o..sz.pc,.....a..,o......c,Logical Inclusive OR
+ADC,r/m16/32,imm8,,,,.......c,o..szapc,o..szapc,,,Add with Carry
+SBB,r/m16/32,imm8,,,,.......c,o..szapc,o..szapc,,,Integer Subtraction with Borrow
+AND,r/m16/32,imm8,,,,,o..szapc,o..sz.pc,.....a..,o......c,Logical AND
+SUB,r/m16/32,imm8,,,,,o..szapc,o..szapc,,,Subtract
+XOR,r/m16/32,imm8,,,,,o..szapc,o..sz.pc,.....a..,o......c,Logical Exclusive OR
+CMP,r/m16/32,imm8,,,,,o..szapc,o..szapc,,,Compare Two Operands
+TEST,r/m8,r8,,,,,o..szapc,o..sz.pc,.....a..,o......c,Logical Compare
+TEST,r/m16/32,r16/32,,,,,o..szapc,o..sz.pc,.....a..,o......c,Logical Compare
+XCHG,r8,r/m8,,,,,,,,,Exchange Register/Memory with Register
+XCHG,r16/32,r/m16/32,,,,,,,,,Exchange Register/Memory with Register
+MOV,r/m8,r8,,,,,,,,,Move
+MOV,r/m16/32,r16/32,,,,,,,,,Move
+MOV,r8,r/m8,,,,,,,,,Move
+MOV,r16/32,r/m16/32,,,,,,,,,Move
+MOV,m16,Sreg,,,,,,,,,Move
+MOV,r16/32,Sreg,,,,,,,,,
+LEA,r16/32,m,,,,,,,,,Load Effective Address
+MOV,Sreg,r/m16,,,,,,,,,Move
+POP,r/m16/32,,,,,,,,,,Pop a Value from the Stack
+XCHG,r16/32,eAX,,,,,,,,,Exchange Register/Memory with Register
+NOP,,,,,,,,,,,No Operation
+PAUSE,,,,,sse2,,,,,,Spin Loop Hint
+CBW,AX,AL,,,,,,,,,Convert Byte to Word
+CWDE,EAX,AX,,,,,,,,,Convert Word to Doubleword
+CWD,DX,AX,,,,,,,,,Convert Word to Doubleword
+CDQ,EDX,EAX,,,,,,,,,Convert Doubleword to Quadword
+CALLF,ptr16:16/32,,,,,,,,,,Call Procedure
+FWAIT,,,,,,,123,,123,,Check pending unmasked floating-point exceptions
+WAIT,,,,,,,,,,,
+no mnemonic,,,,,,,123,,123,,Wait Prefix
+PUSHF,Flags,,,,,,,,,,Push FLAGS Register onto the Stack
+PUSHFD,EFlags,,,,,,,,,,Push eFLAGS Register onto the Stack
+POPF,Flags,,,,,,,,,,Pop Stack into FLAGS Register
+POPFD,EFlags,,,,,,,,,,Pop Stack into eFLAGS Register
+SAHF,AH,,,,,,...szapc,...szapc,,,Store AH into Flags
+LAHF,AH,,,,,...szapc,,,,,Load Status Flags into AH Register
+MOV,AL,moffs8,,,,,,,,,Move
+MOV,eAX,moffs16/32,,,,,,,,,Move
+MOV,moffs8,AL,,,,,,,,,Move
+MOV,moffs16/32,eAX,,,,,,,,,Move
+MOVS,m8,m8,,,,.d......,,,,,Move Data from String to String
+MOVSB,m8,m8,,,,,,,,,
+MOVS,m16,m16,,,,.d......,,,,,Move Data from String to String
+MOVSW,m16,m16,,,,,,,,,
+MOVS,m16/32,m16/32,,,,.d......,,,,,Move Data from String to String
+MOVSD,m32,m32,,,,,,,,,
+CMPS,m8,m8,,,,.d......,o..szapc,o..szapc,,,Compare String Operands
+CMPSB,m8,m8,,,,,,,,,
+CMPS,m16,m16,,,,.d......,o..szapc,o..szapc,,,Compare String Operands
+CMPSW,m16,m16,,,,,,,,,
+CMPS,m16/32,m16/32,,,,.d......,o..szapc,o..szapc,,,Compare String Operands
+CMPSD,m32,m32,,,,,,,,,
+TEST,AL,imm8,,,,,o..szapc,o..sz.pc,.....a..,o......c,Logical Compare
+TEST,eAX,imm16/32,,,,,o..szapc,o..sz.pc,.....a..,o......c,Logical Compare
+STOS,m8,AL,,,,.d......,,,,,Store String
+STOSB,m8,AL,,,,,,,,,
+STOS,m16,AX,,,,.d......,,,,,Store String
+STOSW,m16,AX,,,,,,,,,
+STOS,m16/32,eAX,,,,.d......,,,,,Store String
+STOSD,m32,EAX,,,,,,,,,
+LODS,AL,m8,,,,.d......,,,,,Load String
+LODSB,AL,m8,,,,,,,,,
+LODS,AX,m16,,,,.d......,,,,,Load String
+LODSW,AX,m16,,,,,,,,,
+LODS,eAX,m16/32,,,,.d......,,,,,Load String
+LODSD,EAX,m32,,,,,,,,,
+SCAS,m8,AL,,,,.d......,o..szapc,o..szapc,,,Scan String
+SCASB,m8,AL,,,,,,,,,
+SCAS,m16,AX,,,,.d......,o..szapc,o..szapc,,,Scan String
+SCASW,m16,AX,,,,,,,,,
+SCAS,m16/32,eAX,,,,.d......,o..szapc,o..szapc,,,Scan String
+SCASD,m32,EAX,,,,,,,,,
+MOV,r8,imm8,,,,,,,,,Move
+MOV,r16/32,imm16/32,,,,,,,,,Move
+ROL,r/m8,imm8,,,,,o..szapc,o..szapc,o.......,,Rotate
+ROR,r/m8,imm8,,,,,o..szapc,o..szapc,o.......,,Rotate
+RCL,r/m8,imm8,,,,.......c,o..szapc,o..szapc,o.......,,Rotate
+RCR,r/m8,imm8,,,,.......c,o..szapc,o..szapc,o.......,,Rotate
+SHL,r/m8,imm8,,,,,o..szapc,o..sz.pc,o....a.c,,Shift
+SAL,r/m8,imm8,,,,,,,,,
+SHR,r/m8,imm8,,,,,o..szapc,o..sz.pc,o....a.c,,Shift
+SAL,r/m8,imm8,,,,,o..szapc,o..sz.pc,o....a.c,,Shift
+SHL,r/m8,imm8,,,,,,,,,
+SAR,r/m8,imm8,,,,,o..szapc,o..sz.pc,o....a..,,Shift
+ROL,r/m16/32,imm8,,,,,o..szapc,o..szapc,o.......,,Rotate
+ROR,r/m16/32,imm8,,,,,o..szapc,o..szapc,o.......,,Rotate
+RCL,r/m16/32,imm8,,,,.......c,o..szapc,o..szapc,o.......,,Rotate
+RCR,r/m16/32,imm8,,,,.......c,o..szapc,o..szapc,o.......,,Rotate
+SHL,r/m16/32,imm8,,,,,o..szapc,o..sz.pc,o....a.c,,Shift
+SAL,r/m16/32,imm8,,,,,,,,,
+SHR,r/m16/32,imm8,,,,,o..szapc,o..sz.pc,o....a.c,,Shift
+SAL,r/m16/32,imm8,,,,,o..szapc,o..sz.pc,o....a.c,,Shift
+SHL,r/m16/32,imm8,,,,,,,,,
+SAR,r/m16/32,imm8,,,,,o..szapc,o..sz.pc,o....a..,,Shift
+RETN,imm16,,,,,,,,,,Return from procedure
+RETN,,,,,,,,,,,Return from procedure
+LES,ES,r16/32,m16:16/32,,,,,,,,Load Far Pointer
+LDS,DS,r16/32,m16:16/32,,,,,,,,Load Far Pointer
+MOV,r/m8,imm8,,,,,,,,,Move
+MOV,r/m16/32,imm16/32,,,,,,,,,Move
+ENTER,eBP,imm16,imm8,,,,,,,,Make Stack Frame for Procedure Parameters
+LEAVE,eBP,,,,,,,,,,High Level Procedure Exit
+RETF,imm16,,,,,,,,,,Return from procedure
+RETF,,,,,,,,,,,Return from procedure
+INT,3,eFlags,,,,,..i.....,..i.....,,..i.....,Call to Interrupt Procedure
+INT,imm8,eFlags,,,,,..i.....,..i.....,,..i.....,Call to Interrupt Procedure
+INTO,eFlags,,,,,o.......,..i.....,..i.....,,..i.....,Call to Interrupt Procedure
+IRET,Flags,,,,,,,,,,Interrupt Return
+IRETD,EFlags,,,,,,,,,,Interrupt Return
+ROL,r/m8,1,,,,,o..szapc,o..szapc,,,Rotate
+ROR,r/m8,1,,,,,o..szapc,o..szapc,,,Rotate
+RCL,r/m8,1,,,,.......c,o..szapc,o..szapc,,,Rotate
+RCR,r/m8,1,,,,.......c,o..szapc,o..szapc,,,Rotate
+SHL,r/m8,1,,,,,o..szapc,o..sz.pc,.....a..,,Shift
+SAL,r/m8,1,,,,,,,,,
+SHR,r/m8,1,,,,,o..szapc,o..sz.pc,.....a..,,Shift
+SAL,r/m8,1,,,,,o..szapc,o..sz.pc,.....a..,,Shift
+SHL,r/m8,1,,,,,,,,,
+SAR,r/m8,1,,,,,o..szapc,o..sz.pc,.....a..,,Shift
+ROL,r/m16/32,1,,,,,o..szapc,o..szapc,,,Rotate
+ROR,r/m16/32,1,,,,,o..szapc,o..szapc,,,Rotate
+RCL,r/m16/32,1,,,,.......c,o..szapc,o..szapc,,,Rotate
+RCR,r/m16/32,1,,,,.......c,o..szapc,o..szapc,,,Rotate
+SHL,r/m16/32,1,,,,,o..szapc,o..sz.pc,.....a..,,Shift
+SAL,r/m16/32,1,,,,,,,,,
+SHR,r/m16/32,1,,,,,o..szapc,o..sz.pc,.....a..,,Shift
+SAL,r/m16/32,1,,,,,o..szapc,o..sz.pc,.....a..,,Shift
+SHL,r/m16/32,1,,,,,,,,,
+SAR,r/m16/32,1,,,,,o..szapc,o..sz.pc,.....a..,,Shift
+ROL,r/m8,CL,,,,,o..szapc,o..szapc,o.......,,Rotate
+ROR,r/m8,CL,,,,,o..szapc,o..szapc,o.......,,Rotate
+RCL,r/m8,CL,,,,.......c,o..szapc,o..szapc,o.......,,Rotate
+RCR,r/m8,CL,,,,.......c,o..szapc,o..szapc,o.......,,Rotate
+SHL,r/m8,CL,,,,,o..szapc,o..sz.pc,o....a.c,,Shift
+SAL,r/m8,CL,,,,,,,,,
+SHR,r/m8,CL,,,,,o..szapc,o..sz.pc,o....a.c,,Shift
+SAL,r/m8,CL,,,,,o..szapc,o..sz.pc,o....a.c,,Shift
+SHL,r/m8,CL,,,,,,,,,
+SAR,r/m8,CL,,,,,o..szapc,o..sz.pc,o....a..,,Shift
+ROL,r/m16/32,CL,,,,,o..szapc,o..szapc,o.......,,Rotate
+ROR,r/m16/32,CL,,,,,o..szapc,o..szapc,o.......,,Rotate
+RCL,r/m16/32,CL,,,,.......c,o..szapc,o..szapc,o.......,,Rotate
+RCR,r/m16/32,CL,,,,.......c,o..szapc,o..szapc,o.......,,Rotate
+SHL,r/m16/32,CL,,,,,o..szapc,o..sz.pc,o....a.c,,Shift
+SAL,r/m16/32,CL,,,,,,,,,
+SHR,r/m16/32,CL,,,,,o..szapc,o..sz.pc,o....a.c,,Shift
+SAL,r/m16/32,CL,,,,,o..szapc,o..sz.pc,o....a.c,,Shift
+SHL,r/m16/32,CL,,,,,,,,,
+SAR,r/m16/32,CL,,,,,o..szapc,o..sz.pc,.....a..,,Shift
+AAM,AL,AH,,,,,o..szapc,...sz.p.,o....a.c,,ASCII Adjust AX After Multiply
+AMX,AL,AH,imm8,,,,o..szapc,...sz.p.,o....a.c,,Adjust AX After Multiply
+AAD,AL,AH,,,,,o..szapc,...sz.p.,o....a.c,,ASCII Adjust AX Before Division
+ADX,AL,AH,imm8,,,,o..szapc,...sz.p.,o....a.c,,Adjust AX Before Division
+undefined,,,,,,,,,,,Undefined and Reserved; Does not Generate #UD
+SALC,AL,,,,,.......c,,,,,Set AL If Carry
+SETALC,AL,,,,,,,,,,
+XLAT,AL,m8,,,,,,,,,Table Look-up Translation
+XLATB,AL,m8,,,,,,,,,
+FADD,ST,m32real,,,,,123,.1..,0.23,,Add
+FADD,ST,STi,,,,,,,,,
+FMUL,ST,m32real,,,,,123,.1..,0.23,,Multiply
+FMUL,ST,STi,,,,,,,,,
+FCOM,ST,STi/m32real,,,,,123,123,,,Compare Real
+FCOM,ST,ST1,,,,,123,123,,,Compare Real
+FCOMP,ST,STi/m32real,,,,,123,123,,,Compare Real and Pop
+FCOMP,ST,ST1,,,,,123,123,,,Compare Real and Pop
+FSUB,ST,m32real,,,,,123,.1..,0.23,,Subtract
+FSUB,ST,STi,,,,,,,,,
+FSUBR,ST,m32real,,,,,123,.1..,0.23,,Reverse Subtract
+FSUBR,ST,STi,,,,,,,,,
+FDIV,ST,m32real,,,,,123,.1..,0.23,,Divide
+FDIV,ST,STi,,,,,,,,,
+FDIVR,ST,m32real,,,,,123,.1..,0.23,,Reverse Divide
+FDIVR,ST,STi,,,,,,,,,
+FLD,ST,STi/m32real,,,,,123,.1..,0.23,,Load Floating Point Value
+FXCH,ST,STi,,,,,123,.1..,0.23,,Exchange Register Contents
+FXCH,ST,ST1,,,,,123,.1..,0.23,,Exchange Register Contents
+FST,m32real,ST,,,,,123,.1..,0.23,,Store Floating Point Value
+FNOP,,,,,,,123,,123,,No Operation
+FSTP,m32real,ST,,,,,123,.1..,0.23,,Store Floating Point Value and Pop
+FSTP1,STi,ST,,,,,123,.1..,0.23,,Store Floating Point Value and Pop
+FLDENV,m14/28,,,,,,123,123,,,Load x87 FPU Environment
+FCHS,ST,,,,,,123,.1..,0.23,,Change Sign
+FABS,ST,,,,,,123,.1..,0.23,,Absolute Value
+FTST,ST,,,,,,123,123,,,Test
+FXAM,ST,,,,,,123,123,,,Examine
+FLDCW,m16,,,,,,123,,123,,Load x87 FPU Control Word
+FLD1,ST,,,,,,123,.1..,0.23,,Load Constant +1.0
+FLDL2T,ST,,,,,,123,.1..,0.23,,Load Constant log210
+FLDL2E,ST,,,,,,123,.1..,0.23,,Load Constant log2e
+FLDPI,ST,,,,,,123,.1..,0.23,,Load Constant π
+FLDLG2,ST,,,,,,123,.1..,0.23,,Load Constant log102
+FLDLN2,ST,,,,,,123,.1..,0.23,,Load Constant loge2
+FLDZ,ST,,,,,,123,.1..,0.23,,Load Constant +0.0
+FNSTENV,m14/28,,,,,,123,,123,,Store x87 FPU Environment
+FSTENV,m14/28,,,,,,123,,123,,Store x87 FPU Environment
+F2XM1,ST,,,,,,123,.1..,0.23,,Compute 2x-1
+FYL2X,ST1,ST,,,,,123,.1..,0.23,,Compute y × log2x and Pop
+FPTAN,ST,,,,,,123,.12.,0..3,,Partial Tangent
+FPATAN,ST1,ST,,,,,123,.1..,0.23,,Partial Arctangent and Pop
+FXTRACT,ST,,,,,,123,.1..,0.23,,Extract Exponent and Significand
+FPREM1,ST,ST1,,,,,123,123,,,IEEE Partial Remainder
+FDECSTP,,,,,,,123,.1..,0.23,.0..,Decrement Stack-Top Pointer
+FINCSTP,,,,,,,123,.1..,0.23,.0..,Increment Stack-Top Pointer
+FNSTCW,m16,,,,,,123,,123,,Store x87 FPU Control Word
+FSTCW,m16,,,,,,123,,123,,Store x87 FPU Control Word
+FPREM,ST,ST1,,,,,123,123,,,Partial Remainder (for compatibility with i8087 and i287)
+FYL2XP1,ST1,ST,,,,,123,.1..,0.23,,Compute y × log2(x+1) and Pop
+FSQRT,ST,,,,,,123,.1..,0.23,,Square Root
+FSINCOS,ST,,,,,,123,.12.,0..3,,Sine and Cosine
+FRNDINT,ST,,,,,,123,.1..,0.23,,Round to Integer
+FSCALE,ST,ST1,,,,,123,.1..,0.23,,Scale
+FSIN,ST,,,,,,123,.12.,0..3,,Sine
+FCOS,ST,,,,,,123,.12.,0..3,,Cosine
+FIADD,ST,m32int,,,,,123,.1..,0.23,,Add
+FCMOVB,ST,STi,,,,.......c,123,.1..,0.23,,FP Conditional Move - below (CF=1)
+FIMUL,ST,m32int,,,,,123,.1..,0.23,,Multiply
+FCMOVE,ST,STi,,,,....z...,123,.1..,0.23,,FP Conditional Move - equal (ZF=1)
+FICOM,ST,m32int,,,,,123,123,,,Compare Integer
+FCMOVBE,ST,STi,,,,....z...,123,.1..,0.23,,FP Conditional Move - below or equal (CF=1 or ZF=1)
+FICOMP,ST,m32int,,,,,123,123,,,Compare Integer and Pop
+FCMOVU,ST,STi,,,,......p.,123,.1..,0.23,,FP Conditional Move - unordered (PF=1)
+FISUB,ST,m32int,,,,,123,.1..,0.23,,Subtract
+FISUBR,ST,m32int,,,,,123,.1..,0.23,,Reverse Subtract
+FUCOMPP,ST,ST1,,,,,123,123,,,Unordered Compare Floating Point Values and Pop Twice
+FIDIV,ST,m32int,,,,,123,.1..,0.23,,Divide
+FIDIVR,ST,m32int,,,,,123,.1..,0.23,,Reverse Divide
+FILD,ST,m32int,,,,,123,.1..,0.23,,Load Integer
+FCMOVNB,ST,STi,,,,.......c,123,.1..,0.23,,FP Conditional Move - not below (CF=0)
+FISTTP,m32int,ST,,,sse3,,123,.1..,0.23,.0..,Store Integer with Truncation and Pop
+FCMOVNE,ST,STi,,,,....z...,123,.1..,0.23,,FP Conditional Move - not equal (ZF=0)
+FIST,m32int,ST,,,,,123,.1..,0.23,,Store Integer
+FCMOVNBE,ST,STi,,,,....z...,123,.1..,0.23,,FP Conditional Move - below or equal (CF=0 and ZF=0)
+FISTP,m32int,ST,,,,,123,.1..,0.23,,Store Integer and Pop
+FCMOVNU,ST,STi,,,,......p.,123,.1..,0.23,,FP Conditional Move - not unordered (PF=0)
+FNENI nop,,,,,,,,,,,Treated as Integer NOP
+FNDISI nop,,,,,,,,,,,Treated as Integer NOP
+FNCLEX,,,,,,,123,,123,,Clear Exceptions
+FCLEX,,,,,,,123,,123,,Clear Exceptions
+FNINIT,,,,,,,123,,,0,Initialize Floating-Point Unit
+FINIT,,,,,,,123,,,0,Initialize Floating-Point Unit
+FNSETPM nop,,,,,,,,,,,Treated as Integer NOP
+FLD,ST,m80real,,,,,123,.1..,0.23,,Load Floating Point Value
+FUCOMI,ST,STi,,,,,o...z.pc .1..,o...z.pc .1..,,o.......,Unordered Compare Floating Point Values and Set EFLAGS
+FCOMI,ST,STi,,,,,o...z.pc .1..,o...z.pc .1..,,o.......,Compare Floating Point Values and Set EFLAGS
+FSTP,m80real,ST,,,,,123,.1..,0.23,,Store Floating Point Value and Pop
+FADD,ST,m64real,,,,,123,.1..,0.23,,Add
+FADD,STi,ST,,,,,123,.1..,0.23,,Add
+FMUL,ST,m64real,,,,,123,.1..,0.23,,Multiply
+FMUL,STi,ST,,,,,123,.1..,0.23,,Multiply
+FCOM,ST,m64real,,,,,123,123,,,Compare Real
+FCOM2,ST,STi,,,,,123,123,,,Compare Real
+FCOMP,ST,m64real,,,,,123,123,,,Compare Real and Pop
+FCOMP3,ST,STi,,,,,123,123,,,Compare Real and Pop
+FSUB,ST,m64real,,,,,123,.1..,0.23,,Subtract
+FSUBR,STi,ST,,,,,123,.1..,0.23,,Reverse Subtract
+FSUBR,ST,m64real,,,,,123,.1..,0.23,,Reverse Subtract
+FSUB,STi,ST,,,,,123,.1..,0.23,,Subtract
+FDIV,ST,m64real,,,,,123,.1..,0.23,,Divide
+FDIVR,STi,ST,,,,,123,.1..,0.23,,Reverse Divide
+FDIVR,ST,m64real,,,,,123,.1..,0.23,,Reverse Divide
+FDIV,STi,ST,,,,,123,.1..,0.23,,Divide and Pop
+FLD,ST,m64real,,,,,123,.1..,0.23,,Load Floating Point Value
+FFREE,STi,,,,,,123,,123,,Free Floating-Point Register
+FISTTP,m64int,ST,,,sse3,,123,.1..,0.23,.0..,Store Integer with Truncation and Pop
+FXCH4,ST,STi,,,,,123,.1..,0.23,,Exchange Register Contents
+FST,m64real,ST,,,,,123,.1..,0.23,,Store Floating Point Value
+FST,ST,STi,,,,,123,.1..,0.23,,Store Floating Point Value
+FSTP,m64real,ST,,,,,123,.1..,0.23,,Store Floating Point Value and Pop
+FSTP,ST,STi,,,,,123,.1..,0.23,,Store Floating Point Value and Pop
+FRSTOR,ST,ST1,ST2,...,,,123,123,,,Restore x87 FPU State
+FUCOM,ST,STi,,,,,123,123,,,Unordered Compare Floating Point Values
+FUCOM,ST,ST1,,,,,123,123,,,Unordered Compare Floating Point Values
+FUCOMP,ST,STi,,,,,123,123,,,Unordered Compare Floating Point Values and Pop
+FUCOMP,ST,ST1,,,,,123,123,,,Unordered Compare Floating Point Values and Pop
+FNSAVE,m94/108,ST,ST1,...,,,123,123,,0,Store x87 FPU State
+FSAVE,m94/108,ST,ST1,...,,,123,123,,0,Store x87 FPU State
+FNSTSW,m16,,,,,,123,,123,,Store x87 FPU Status Word
+FSTSW,m16,,,,,,123,,123,,Store x87 FPU Status Word
+FIADD,ST,m16int,,,,,123,.1..,0.23,,Add
+FADDP,STi,ST,,,,,123,.1..,0.23,,Add and Pop
+FADDP,ST1,ST,,,,,123,.1..,0.23,,Add and Pop
+FIMUL,ST,m16int,,,,,123,.1..,0.23,,Multiply
+FMULP,STi,ST,,,,,123,.1..,0.23,,Multiply and Pop
+FMULP,ST1,ST,,,,,123,.1..,0.23,,Multiply and Pop
+FICOM,ST,m16int,,,,,123,123,,,Compare Integer
+FCOMP5,ST,STi,,,,,123,123,,,Compare Real and Pop
+FICOMP,ST,m16int,,,,,123,123,,,Compare Integer and Pop
+FCOMPP,ST,ST1,,,,,123,123,,,Compare Real and Pop Twice
+FISUB,ST,m16int,,,,,123,.1..,0.23,,Subtract
+FSUBRP,STi,ST,,,,,123,.1..,0.23,,Reverse Subtract and Pop
+FSUBRP,ST1,ST,,,,,123,.1..,0.23,,Reverse Subtract and Pop
+FISUBR,ST,m16int,,,,,123,.1..,0.23,,Reverse Subtract
+FSUBP,STi,ST,,,,,123,.1..,0.23,,Subtract and Pop
+FSUBP,ST1,ST,,,,,123,.1..,0.23,,Subtract and Pop
+FIDIV,ST,m16int,,,,,123,.1..,0.23,,Divide
+FDIVRP,STi,ST,,,,,123,.1..,0.23,,Reverse Divide and Pop
+FDIVRP,ST1,ST,,,,,123,.1..,0.23,,Reverse Divide and Pop
+FIDIVR,ST,m16int,,,,,123,.1..,0.23,,Reverse Divide
+FDIVP,STi,ST,,,,,123,.1..,0.23,,Divide and Pop
+FDIVP,ST1,ST,,,,,123,.1..,0.23,,Divide and Pop
+FILD,ST,m16int,,,,,123,.1..,0.23,,Load Integer
+FFREEP,STi,,,,,,123,,123,,Free Floating-Point Register and Pop
+FISTTP,m16int,ST,,,sse3,,123,.1..,0.23,.0..,Store Integer with Truncation and Pop
+FXCH7,ST,STi,,,,,123,.1..,0.23,,Exchange Register Contents
+FIST,m16int,ST,,,,,123,.1..,0.23,,Store Integer
+FSTP8,STi,ST,,,,,123,.1..,0.23,,Store Floating Point Value and Pop
+FISTP,m16int,ST,,,,,123,.1..,0.23,,Store Integer and Pop
+FSTP9,STi,ST,,,,,123,.1..,0.23,,Store Floating Point Value and Pop
+FBLD,ST,m80dec,,,,,123,.1..,0.23,,Load Binary Coded Decimal
+FNSTSW,AX,,,,,,123,,123,,Store x87 FPU Status Word
+FSTSW,AX,,,,,,123,,123,,Store x87 FPU Status Word
+FILD,ST,m64int,,,,,123,.1..,0.23,,Load Integer
+FUCOMIP,ST,STi,,,,,o...z.pc .1..,o...z.pc .1..,,o.......,Unordered Compare Floating Point Values and Set EFLAGS and Pop
+FBSTP,m80dec,ST,,,,,123,.1..,0.23,,Store BCD Integer and Pop
+FCOMIP,ST,STi,,,,,o...z.pc .1..,o...z.pc .1..,,o.......,Compare Floating Point Values and Set EFLAGS and Pop
+FISTP,m64int,ST,,,,,123,.1..,0.23,,Store Integer and Pop
+LOOPNZ,eCX,rel8,,,,....z...,,,,,Decrement count; Jump short if count!=0 and ZF=0
+LOOPNE,eCX,rel8,,,,,,,,,
+LOOPZ,eCX,rel8,,,,....z...,,,,,Decrement count; Jump short if count!=0 and ZF=1
+LOOPE,eCX,rel8,,,,,,,,,
+LOOP,eCX,rel8,,,,,,,,,Decrement count; Jump short if count!=0
+JCXZ,rel8,CX,,,,,,,,,Jump short if eCX register is 0
+JECXZ,rel8,ECX,,,,,,,,,
+IN,AL,imm8,,,,,,,,,Input from Port
+IN,eAX,imm8,,,,,,,,,Input from Port
+OUT,imm8,AL,,,,,,,,,Output to Port
+OUT,imm8,eAX,,,,,,,,,Output to Port
+CALL,rel16/32,,,,,,,,,,Call Procedure
+JMP,rel16/32,,,,,,,,,,Jump
+JMPF,ptr16:16/32,,,,,,,,,,Jump
+JMP,rel8,,,,,,,,,,Jump
+IN,AL,DX,,,,,,,,,Input from Port
+IN,eAX,DX,,,,,,,,,Input from Port
+OUT,DX,AL,,,,,,,,,Output to Port
+OUT,DX,eAX,,,,,,,,,Output to Port
+LOCK,,,,,,,,,,,Assert LOCK# Signal Prefix
+undefined,,,,,,,,,,,Undefined and Reserved; Does not Generate #UD
+INT1,eFlags,,,,,,..i.....,..i.....,,..i.....,Call to Interrupt Procedure
+ICEBP,eFlags,,,,,,,,,,
+REPNZ,eCX,,,,,....z...,,,,,Repeat String Operation Prefix
+REPNE,eCX,,,,,,,,,,
+REP,eCX,,,,,,,,,,Repeat String Operation Prefix
+no mnemonic,,,,,sse2,,,,,,Scalar Double-precision Prefix
+REPZ,eCX,,,,,....z...,,,,,Repeat String Operation Prefix
+REPE,eCX,,,,,,,,,,
+REP,eCX,,,,,,,,,,Repeat String Operation Prefix
+no mnemonic,,,,,sse1,,,,,,Scalar Single-precision Prefix
+HLT,,,,,,,,,,,Halt
+CMC,,,,,,.......c,.......c,.......c,,,Complement Carry Flag
+TEST,r/m8,imm8,,,,,o..szapc,o..sz.pc,.....a..,o......c,Logical Compare
+TEST,r/m8,imm8,,,,,o..szapc,o..sz.pc,.....a..,o......c,Logical Compare
+NOT,r/m8,,,,,,,,,,One's Complement Negation
+NEG,r/m8,,,,,,o..szapc,o..szapc,,,Two's Complement Negation
+MUL,AX,AL,r/m8,,,,o..szapc,o......c,...szap.,,Unsigned Multiply
+IMUL,AX,AL,r/m8,,,,o..szapc,o......c,...szap.,,Signed Multiply
+DIV,AL,AH,AX,r/m8,,,o..szapc,,o..szapc,,Unsigned Divide
+IDIV,AL,AH,AX,r/m8,,,o..szapc,,o..szapc,,Signed Divide
+TEST,r/m16/32,imm16/32,,,,,o..szapc,o..sz.pc,.....a..,o......c,Logical Compare
+TEST,r/m16/32,imm16/32,,,,,o..szapc,o..sz.pc,.....a..,o......c,Logical Compare
+NOT,r/m16/32,,,,,,,,,,One's Complement Negation
+NEG,r/m16/32,,,,,,o..szapc,o..szapc,,,Two's Complement Negation
+MUL,eDX,eAX,r/m16/32,,,,o..szapc,o......c,...szap.,,Unsigned Multiply
+IMUL,eDX,eAX,r/m16/32,,,,o..szapc,o......c,...szap.,,Signed Multiply
+DIV,eDX,eAX,r/m16/32,,,,o..szapc,,o..szapc,,Unsigned Divide
+IDIV,eDX,eAX,r/m16/32,,,,o..szapc,,o..szapc,,Signed Divide
+CLC,,,,,,,.......c,.......c,,.......c,Clear Carry Flag
+STC,,,,,,,.......c,.......c,,.......C,Set Carry Flag
+CLI,,,,,,,..i.....,..i.....,,..i.....,Clear Interrupt Flag
+STI,,,,,,,..i.....,..i.....,,..I.....,Set Interrupt Flag
+CLD,,,,,,,.d......,.d......,,.d......,Clear Direction Flag
+STD,,,,,,,.d......,.d......,,.D......,Set Direction Flag
+INC,r/m8,,,,,,o..szap.,o..szap.,,,Increment by 1
+DEC,r/m8,,,,,,o..szap.,o..szap.,,,Decrement by 1
+INC,r/m16/32,,,,,,o..szap.,o..szap.,,,Increment by 1
+DEC,r/m16/32,,,,,,o..szap.,o..szap.,,,Decrement by 1
+CALL,r/m16/32,,,,,,,,,,Call Procedure
+CALLF,m16:16/32,,,,,,,,,,Call Procedure
+JMP,r/m16/32,,,,,,,,,,Jump
+JMPF,m16:16/32,,,,,,,,,,Jump
+PUSH,r/m16/32,,,,,,,,,,"Push Word, Doubleword or Quadword Onto the Stack"
+,,,,,,,,,,,
+mnemonic,op1,op2,op3,op4,iext,tested f,modif f,def f,undef f,f values,"description, notes"
+SLDT,m16,LDTR,,,,,,,,,Store Local Descriptor Table Register
+SLDT,r16/32,LDTR,,,,,,,,,
+STR,m16,TR,,,,,,,,,Store Task Register
+STR,r16/32,TR,,,,,,,,,
+LLDT,LDTR,r/m16,,,,,,,,,Load Local Descriptor Table Register
+LTR,TR,r/m16,,,,,,,,,Load Task Register
+VERR,r/m16,,,,,,....z...,....z...,,,Verify a Segment for Reading
+VERW,r/m16,,,,,,....z...,....z...,,,Verify a Segment for Writing
+SGDT,m,GDTR,,,,,,,,,Store Global Descriptor Table Register
+VMCALL,,,,,vmx,,o..szapc,o..szapc,,,Call to VM Monitor
+VMLAUNCH,,,,,vmx,,o..szapc,o..szapc,,,Launch Virtual Machine
+VMRESUME,,,,,vmx,,o..szapc,o..szapc,,,Resume Virtual Machine
+VMXOFF,,,,,vmx,,o..szapc,o..szapc,,,Leave VMX Operation
+SIDT,m,IDTR,,,,,,,,,Store Interrupt Descriptor Table Register
+MONITOR,m8,ECX,EDX,,sse3,,,,,,Set Up Monitor Address
+MWAIT,EAX,ECX,,,sse3,,,,,,Monitor Wait
+LGDT,GDTR,m,,,,,,,,,Load Global Descriptor Table Register
+XGETBV,EDX,EAX,ECX,XCR,,,,,,,Get Value of Extended Control Register
+XSETBV,XCR,ECX,EDX,EAX,,,,,,,Set Extended Control Register
+LIDT,IDTR,m,,,,,,,,,Load Interrupt Descriptor Table Register
+SMSW,m16,MSW,,,,,,,,,Store Machine Status Word
+SMSW,r16/32,MSW,,,,,,,,,
+LMSW,MSW,r/m16,,,,,,,,,Load Machine Status Word
+INVLPG,m,,,,,,,,,,Invalidate TLB Entry
+RDTSCP,EAX,EDX,ECX,...,,,,,,,Read Time-Stamp Counter and Processor ID
+LAR,r16/32,m16,,,,,....z...,....z...,,,Load Access Rights Byte
+LAR,r16/32,r16/32,,,,,,,,,
+LSL,r16/32,m16,,,,,....z...,....z...,,,Load Segment Limit
+LSL,r16/32,r16/32,,,,,,,,,
+CLTS,CR0,,,,,,,,,,Clear Task-Switched Flag in CR0
+INVD,,,,,,,,,,,Invalidate Internal Caches
+WBINVD,,,,,,,,,,,Write Back and Invalidate Cache
+UD2,,,,,,,,,,,Undefined Instruction
+NOP,r/m16/32,,,,,,,,,,No Operation
+MOVUPS,xmm,xmm/m128,,,sse1,,,,,,Move Unaligned Packed Single-FP Values
+MOVSS,xmm,xmm/m32,,,sse1,,,,,,Move Scalar Single-FP Values
+MOVUPD,xmm,xmm/m128,,,sse2,,,,,,Move Unaligned Packed Double-FP Value
+MOVSD,xmm,xmm/m64,,,sse2,,,,,,Move Scalar Double-FP Value
+MOVUPS,xmm/m128,xmm,,,sse1,,,,,,Move Unaligned Packed Single-FP Values
+MOVSS,xmm/m32,xmm,,,sse1,,,,,,Move Scalar Single-FP Values
+MOVUPD,xmm/m128,xmm,,,sse2,,,,,,Move Unaligned Packed Double-FP Values
+MOVSD,xmm/m64,xmm,,,sse2,,,,,,Move Scalar Double-FP Value
+MOVHLPS,xmm,xmm,,,sse1,,,,,,Move Packed Single-FP Values High to Low
+MOVLPS,xmm,m64,,,sse1,,,,,,Move Low Packed Single-FP Values
+MOVLPD,xmm,m64,,,sse2,,,,,,Move Low Packed Double-FP Value
+MOVDDUP,xmm,xmm/m64,,,sse3,,,,,,Move One Double-FP and Duplicate
+MOVSLDUP,xmm,xmm/m64,,,sse3,,,,,,Move Packed Single-FP Low and Duplicate
+MOVLPS,m64,xmm,,,sse1,,,,,,Move Low Packed Single-FP Values
+MOVLPD,m64,xmm,,,sse2,,,,,,Move Low Packed Double-FP Value
+UNPCKLPS,xmm,xmm/m64,,,sse1,,,,,,Unpack and Interleave Low Packed Single-FP Values
+UNPCKLPD,xmm,xmm/m128,,,sse2,,,,,,Unpack and Interleave Low Packed Double-FP Values
+UNPCKHPS,xmm,xmm/m64,,,sse1,,,,,,Unpack and Interleave High Packed Single-FP Values
+UNPCKHPD,xmm,xmm/m128,,,sse2,,,,,,Unpack and Interleave High Packed Double-FP Values
+MOVLHPS,xmm,xmm,,,sse1,,,,,,Move Packed Single-FP Values Low to High
+MOVHPS,xmm,m64,,,sse1,,,,,,Move High Packed Single-FP Values
+MOVHPD,xmm,m64,,,sse2,,,,,,Move High Packed Double-FP Value
+MOVSHDUP,xmm,xmm/m64,,,sse3,,,,,,Move Packed Single-FP High and Duplicate
+MOVHPS,m64,xmm,,,sse1,,,,,,Move High Packed Single-FP Values
+MOVHPD,m64,xmm,,,sse2,,,,,,Move High Packed Double-FP Value
+PREFETCHNTA,m8,,,,sse1,,,,,,Prefetch Data Into Caches
+PREFETCHT0,m8,,,,sse1,,,,,,Prefetch Data Into Caches
+PREFETCHT1,m8,,,,sse1,,,,,,Prefetch Data Into Caches
+PREFETCHT2,m8,,,,sse1,,,,,,Prefetch Data Into Caches
+HINT_NOP,r/m16/32,,,,,,,,,,Hintable NOP
+HINT_NOP,r/m16/32,,,,,,,,,,Hintable NOP
+HINT_NOP,r/m16/32,,,,,,,,,,Hintable NOP
+HINT_NOP,r/m16/32,,,,,,,,,,Hintable NOP
+HINT_NOP,r/m16/32,,,,,,,,,,Hintable NOP
+HINT_NOP,r/m16/32,,,,,,,,,,Hintable NOP
+HINT_NOP,r/m16/32,,,,,,,,,,Hintable NOP
+HINT_NOP,r/m16/32,,,,,,,,,,Hintable NOP
+HINT_NOP,r/m16/32,,,,,,,,,,Hintable NOP
+HINT_NOP,r/m16/32,,,,,,,,,,Hintable NOP
+NOP,r/m16/32,,,,,,,,,,No Operation
+HINT_NOP,r/m16/32,,,,,,,,,,Hintable NOP
+HINT_NOP,r/m16/32,,,,,,,,,,Hintable NOP
+HINT_NOP,r/m16/32,,,,,,,,,,Hintable NOP
+HINT_NOP,r/m16/32,,,,,,,,,,Hintable NOP
+HINT_NOP,r/m16/32,,,,,,,,,,Hintable NOP
+HINT_NOP,r/m16/32,,,,,,,,,,Hintable NOP
+HINT_NOP,r/m16/32,,,,,,,,,,Hintable NOP
+MOV,r32,CRn,,,,,o..szapc,,o..szapc,,Move to/from Control Registers
+MOV,r32,CRn,,,,,o..szapc,,o..szapc,,Move to/from Control Registers
+MOV,r32,DRn,,,,,o..szapc,,o..szapc,,Move to/from Debug Registers
+MOV,r32,DRn,,,,,o..szapc,,o..szapc,,Move to/from Debug Registers
+MOV,CRn,r32,,,,,o..szapc,,o..szapc,,Move to/from Control Registers
+MOV,CRn,r32,,,,,o..szapc,,o..szapc,,Move to/from Control Registers
+MOV,DRn,r32,,,,,o..szapc,,o..szapc,,Move to/from Debug Registers
+MOV,DRn,r64,,,,,o..szapc,,o..szapc,,Move to/from Debug Registers
+MOVAPS,xmm,xmm/m128,,,sse1,,,,,,Move Aligned Packed Single-FP Values
+MOVAPD,xmm,xmm/m128,,,sse2,,,,,,Move Aligned Packed Double-FP Values
+MOVAPS,xmm/m128,xmm,,,sse1,,,,,,Move Aligned Packed Single-FP Values
+MOVAPD,xmm/m128,xmm,,,sse2,,,,,,Move Aligned Packed Double-FP Values
+CVTPI2PS,xmm,mm/m64,,,sse1,,,,,,Convert Packed DW Integers to Single-FP Values
+CVTSI2SS,xmm,r/m32,,,sse1,,,,,,Convert DW Integer to Scalar Single-FP Value
+CVTPI2PD,xmm,mm/m64,,,sse2,,,,,,Convert Packed DW Integers to Double-FP Values
+CVTSI2SD,xmm,r/m32,,,sse2,,,,,,Convert DW Integer to Scalar Double-FP Value
+MOVNTPS,m128,xmm,,,sse1,,,,,,Store Packed Single-FP Values Using Non-Temporal Hint
+MOVNTPD,m128,xmm,,,sse2,,,,,,Store Packed Double-FP Values Using Non-Temporal Hint
+CVTTPS2PI,mm,xmm/m64,,,sse1,,,,,,Convert with Trunc. Packed Single-FP Values to DW Integers
+CVTTSS2SI,r32,xmm/m32,,,sse1,,,,,,Convert with Trunc. Scalar Single-FP Value to DW Integer
+CVTTPD2PI,mm,xmm/m128,,,sse2,,,,,,Convert with Trunc. Packed Double-FP Values to DW Integers
+CVTTSD2SI,r32,xmm/m64,,,sse2,,,,,,Conv. with Trunc. Scalar Double-FP Value to Signed DW Int
+CVTPS2PI,mm,xmm/m64,,,sse1,,,,,,Convert Packed Single-FP Values to DW Integers
+CVTSS2SI,r32,xmm/m32,,,sse1,,,,,,Convert Scalar Single-FP Value to DW Integer
+CVTPD2PI,mm,xmm/m128,,,sse2,,,,,,Convert Packed Double-FP Values to DW Integers
+CVTSD2SI,r32,xmm/m64,,,sse2,,,,,,Convert Scalar Double-FP Value to DW Integer
+UCOMISS,xmm,xmm/m32,,,sse1,,....z.pc,....z.pc,,,Unordered Compare Scalar Single-FP Values and Set EFLAGS
+UCOMISD,xmm,xmm/m64,,,sse2,,....z.pc,....z.pc,,,Unordered Compare Scalar Double-FP Values and Set EFLAGS
+COMISS,xmm,xmm/m32,,,sse1,,....z.pc,....z.pc,,,Compare Scalar Ordered Single-FP Values and Set EFLAGS
+COMISD,xmm,xmm/m64,,,sse2,,....z.pc,....z.pc,,,Compare Scalar Ordered Double-FP Values and Set EFLAGS
+WRMSR,MSR,ECX,EAX,EDX,,,,,,,Write to Model Specific Register
+RDTSC,EAX,EDX,IA32_TIM…,,,,,,,,Read Time-Stamp Counter
+RDMSR,EAX,EDX,ECX,MSR,,,,,,,Read from Model Specific Register
+RDPMC,EAX,EDX,PMC,,,,,,,,Read Performance-Monitoring Counters
+SYSENTER,SS,ESP,IA32_SYS…,...,,,..i.....,..i.....,,..i.....,Fast System Call
+SYSEXIT,SS,eSP,IA32_SYS…,...,,,,,,,Fast Return from Fast System Call
+GETSEC,EAX,,,,smx,,,,,,GETSEC Leaf Functions
+PSHUFB,mm,mm/m64,,,ssse3,,,,,,Packed Shuffle Bytes
+PSHUFB,xmm,xmm/m128,,,ssse3,,,,,,Packed Shuffle Bytes
+PHADDW,mm,mm/m64,,,ssse3,,,,,,Packed Horizontal Add
+PHADDW,xmm,xmm/m128,,,ssse3,,,,,,Packed Horizontal Add
+PHADDD,mm,mm/m64,,,ssse3,,,,,,Packed Horizontal Add
+PHADDD,xmm,xmm/m128,,,ssse3,,,,,,Packed Horizontal Add
+PHADDSW,mm,mm/m64,,,ssse3,,,,,,Packed Horizontal Add and Saturate
+PHADDSW,xmm,xmm/m128,,,ssse3,,,,,,Packed Horizontal Add and Saturate
+PMADDUBSW,mm,mm/m64,,,ssse3,,,,,,Multiply and Add Packed Signed and Unsigned Bytes
+PMADDUBSW,xmm,xmm/m128,,,ssse3,,,,,,Multiply and Add Packed Signed and Unsigned Bytes
+PHSUBW,mm,mm/m64,,,ssse3,,,,,,Packed Horizontal Subtract
+PHSUBW,xmm,xmm/m128,,,ssse3,,,,,,Packed Horizontal Subtract
+PHSUBD,mm,mm/m64,,,ssse3,,,,,,Packed Horizontal Subtract
+PHSUBD,xmm,xmm/m128,,,ssse3,,,,,,Packed Horizontal Subtract
+PHSUBSW,mm,mm/m64,,,ssse3,,,,,,Packed Horizontal Subtract and Saturate
+PHSUBSW,xmm,xmm/m128,,,ssse3,,,,,,Packed Horizontal Subtract and Saturate
+PSIGNB,mm,mm/m64,,,ssse3,,,,,,Packed SIGN
+PSIGNB,xmm,xmm/m128,,,ssse3,,,,,,Packed SIGN
+PSIGNW,mm,mm/m64,,,ssse3,,,,,,Packed SIGN
+PSIGNW,xmm,xmm/m128,,,ssse3,,,,,,Packed SIGN
+PSIGND,mm,mm/m64,,,ssse3,,,,,,Packed SIGN
+PSIGND,xmm,xmm/m128,,,ssse3,,,,,,Packed SIGN
+PMULHRSW,mm,mm/m64,,,ssse3,,,,,,Packed Multiply High with Round and Scale
+PMULHRSW,xmm,xmm/m128,,,ssse3,,,,,,Packed Multiply High with Round and Scale
+PBLENDVB,xmm,xmm/m128,XMM0,,sse41,,,,,,Variable Blend Packed Bytes
+BLENDVPS,xmm,xmm/m128,XMM0,,sse41,,,,,,Variable Blend Packed Single-FP Values
+BLENDVPD,xmm,xmm/m128,XMM0,,sse41,,,,,,Variable Blend Packed Double-FP Values
+PTEST,xmm,xmm/m128,,,sse41,,o..szapc,o..szapc,,o..s.ap.,Logical Compare
+PABSB,mm,mm/m64,,,ssse3,,,,,,Packed Absolute Value
+PABSB,xmm,xmm/m128,,,ssse3,,,,,,Packed Absolute Value
+PABSW,mm,mm/m64,,,ssse3,,,,,,Packed Absolute Value
+PABSW,xmm,xmm/m128,,,ssse3,,,,,,Packed Absolute Value
+PABSD,mm,mm/m64,,,ssse3,,,,,,Packed Absolute Value
+PABSD,xmm,xmm/m128,,,ssse3,,,,,,Packed Absolute Value
+PMOVSXBW,xmm,m64,,,sse41,,,,,,Packed Move with Sign Extend
+PMOVSXBW,xmm,xmm,,,,,,,,,
+PMOVSXBD,xmm,m32,,,sse41,,,,,,Packed Move with Sign Extend
+PMOVSXBD,xmm,xmm,,,,,,,,,
+PMOVSXBQ,xmm,m16,,,sse41,,,,,,Packed Move with Sign Extend
+PMOVSXBQ,xmm,xmm,,,,,,,,,
+PMOVSXWD,xmm,m64,,,sse41,,,,,,Packed Move with Sign Extend
+PMOVSXWD,xmm,xmm,,,,,,,,,
+PMOVSXWQ,xmm,m32,,,sse41,,,,,,Packed Move with Sign Extend
+PMOVSXWQ,xmm,xmm,,,,,,,,,
+PMOVSXDQ,xmm,m64,,,sse41,,,,,,Packed Move with Sign Extend
+PMOVSXDQ,xmm,xmm,,,,,,,,,
+PMULDQ,xmm,xmm/m128,,,sse41,,,,,,Multiply Packed Signed Dword Integers
+PCMPEQQ,xmm,xmm/m128,,,sse41,,,,,,Compare Packed Qword Data for Equal
+MOVNTDQA,xmm,m128,,,sse41,,,,,,Load Double Quadword Non-Temporal Aligned Hint
+PACKUSDW,xmm,xmm/m128,,,sse41,,,,,,Pack with Unsigned Saturation
+PMOVZXBW,xmm,m64,,,sse41,,,,,,Packed Move with Zero Extend
+PMOVZXBW,xmm,xmm,,,,,,,,,
+PMOVZXBD,xmm,m32,,,sse41,,,,,,Packed Move with Zero Extend
+PMOVZXBD,xmm,xmm,,,,,,,,,
+PMOVZXBQ,xmm,m16,,,sse41,,,,,,Packed Move with Zero Extend
+PMOVZXBQ,xmm,xmm,,,,,,,,,
+PMOVZXWD,xmm,m64,,,sse41,,,,,,Packed Move with Zero Extend
+PMOVZXWD,xmm,xmm,,,,,,,,,
+PMOVZXWQ,xmm,m32,,,sse41,,,,,,Packed Move with Zero Extend
+PMOVZXWQ,xmm,xmm,,,,,,,,,
+PMOVZXDQ,xmm,m64,,,sse41,,,,,,Packed Move with Zero Extend
+PMOVZXDQ,xmm,xmm,,,,,,,,,
+PCMPGTQ,xmm,xmm/m128,,,sse42,,,,,,Compare Packed Qword Data for Greater Than
+PMINSB,xmm,xmm/m128,,,sse41,,,,,,Minimum of Packed Signed Byte Integers
+PMINSD,xmm,xmm/m128,,,sse41,,,,,,Minimum of Packed Signed Dword Integers
+PMINUW,xmm,xmm/m128,,,sse41,,,,,,Minimum of Packed Unsigned Word Integers
+PMINUD,xmm,xmm/m128,,,sse41,,,,,,Minimum of Packed Unsigned Dword Integers
+PMAXSB,xmm,xmm/m128,,,sse41,,,,,,Maximum of Packed Signed Byte Integers
+PMAXSD,xmm,xmm/m128,,,sse41,,,,,,Maximum of Packed Signed Dword Integers
+PMAXUW,xmm,xmm/m128,,,sse41,,,,,,Maximum of Packed Unsigned Word Integers
+PMAXUD,xmm,xmm/m128,,,sse41,,,,,,Maximum of Packed Unsigned Dword Integers
+PMULLD,xmm,xmm/m128,,,sse41,,,,,,Multiply Packed Signed Dword Integers and Store Low Result
+PHMINPOSUW,xmm,xmm/m128,,,sse41,,,,,,Packed Horizontal Word Minimum
+INVEPT,r32,m128,,,vmx,,o..szapc,o..szapc,,,Invalidate Translations Derived from EPT
+INVVPID,r32,m128,,,vmx,,o..szapc,o..szapc,,,Invalidate Translations Based on VPID
+MOVBE,r16/32,m16/32,,,,,,,,,Move Data After Swapping Bytes
+CRC32,r32,r/m8,,,sse42,,,,,,Accumulate CRC32 Value
+MOVBE,m16/32,r16/32,,,,,,,,,Move Data After Swapping Bytes
+CRC32,r32,r/m16/32,,,sse42,,,,,,Accumulate CRC32 Value
+ROUNDPS,xmm,xmm/m128,imm8,,sse41,,,,,,Round Packed Single-FP Values
+ROUNDPD,xmm,xmm/m128,imm8,,sse41,,,,,,Round Packed Double-FP Values
+ROUNDSS,xmm,xmm/m32,imm8,,sse41,,,,,,Round Scalar Single-FP Values
+ROUNDSD,xmm,xmm/m64,imm8,,sse41,,,,,,Round Scalar Double-FP Values
+BLENDPS,xmm,xmm/m128,imm8,,sse41,,,,,,Blend Packed Single-FP Values
+BLENDPD,xmm,xmm/m128,imm8,,sse41,,,,,,Blend Packed Double-FP Values
+PBLENDW,xmm,xmm/m128,imm8,,sse41,,,,,,Blend Packed Words
+PALIGNR,mm,mm/m64,imm8,,ssse3,,,,,,Packed Align Right
+PALIGNR,xmm,xmm/m128,imm8,,ssse3,,,,,,Packed Align Right
+PEXTRB,m8,xmm,imm8,,sse41,,,,,,Extract Byte
+PEXTRB,r32,xmm,imm8,,,,,,,,
+PEXTRW,m16,xmm,imm8,,sse41,,,,,,Extract Word
+PEXTRW,r32,xmm,imm8,,,,,,,,
+PEXTRD,r/m32,xmm,imm8,,sse41,,,,,,Extract Dword/Qword
+PEXTRQ,r/m64,xmm,imm8,,,,,,,,
+EXTRACTPS,r/m32,xmm,imm8,,sse41,,,,,,Extract Packed Single-FP Value
+PINSRB,xmm,m8,imm8,,sse41,,,,,,Insert Byte
+PINSRB,xmm,r32,imm8,,,,,,,,
+INSERTPS,xmm,xmm,imm8,,sse41,,,,,,Insert Packed Single-FP Value
+INSERTPS,xmm,m32,imm8,,,,,,,,
+PINSRD,xmm,r/m32,imm8,,sse41,,,,,,Insert Dword/Qword
+PINSRQ,xmm,r/m64,imm8,,,,,,,,
+DPPS,xmm,xmm/m128,imm8,,sse41,,,,,,Dot Product of Packed Single-FP Values
+DPPD,xmm,xmm/m128,imm8,,sse41,,,,,,Dot Product of Packed Double-FP Values
+MPSADBW,xmm,xmm/m128,imm8,,sse41,,,,,,Compute Multiple Packed Sums of Absolute Difference
+PCMPESTRM,XMM0,xmm,xmm/m128,...,sse42,,o..szapc,o..szapc,,.....ap.,"Packed Compare Explicit Length Strings, Return Mask"
+PCMPESTRI,ECX,xmm,xmm/m128,...,sse42,,o..szapc,o..szapc,,.....ap.,"Packed Compare Explicit Length Strings, Return Index"
+PCMPISTRM,XMM0,xmm,xmm/m128,imm8,sse42,,o..szapc,o..szapc,,.....ap.,"Packed Compare Implicit Length Strings, Return Mask"
+PCMPISTRI,ECX,xmm,xmm/m128,imm8,sse42,,o..szapc,o..szapc,,.....ap.,"Packed Compare Implicit Length Strings, Return Index"
+CMOVO,r16/32,r/m16/32,,,,o.......,,,,,Conditional Move - overflow (OF=1)
+CMOVNO,r16/32,r/m16/32,,,,o.......,,,,,Conditional Move - not overflow (OF=0)
+CMOVB,r16/32,r/m16/32,,,,.......c,,,,,Conditional Move - below/not above or equal/carry (CF=1)
+CMOVNAE,r16/32,r/m16/32,,,,,,,,,
+CMOVC,r16/32,r/m16/32,,,,,,,,,
+CMOVNB,r16/32,r/m16/32,,,,.......c,,,,,Conditional Move - not below/above or equal/not carry (CF=0)
+CMOVAE,r16/32,r/m16/32,,,,,,,,,
+CMOVNC,r16/32,r/m16/32,,,,,,,,,
+CMOVZ,r16/32,r/m16/32,,,,....z...,,,,,Conditional Move - zero/equal (ZF=0)
+CMOVE,r16/32,r/m16/32,,,,,,,,,
+CMOVNZ,r16/32,r/m16/32,,,,....z...,,,,,Conditional Move - not zero/not equal (ZF=1)
+CMOVNE,r16/32,r/m16/32,,,,,,,,,
+CMOVBE,r16/32,r/m16/32,,,,....z..c,,,,,Conditional Move - below or equal/not above (CF=1 AND ZF=1)
+CMOVNA,r16/32,r/m16/32,,,,,,,,,
+CMOVNBE,r16/32,r/m16/32,,,,....z..c,,,,,Conditional Move - not below or equal/above (CF=0 AND ZF=0)
+CMOVA,r16/32,r/m16/32,,,,,,,,,
+CMOVS,r16/32,r/m16/32,,,,...s....,,,,,Conditional Move - sign (SF=1)
+CMOVNS,r16/32,r/m16/32,,,,...s....,,,,,Conditional Move - not sign (SF=0)
+CMOVP,r16/32,r/m16/32,,,,......p.,,,,,Conditional Move - parity/parity even (PF=1)
+CMOVPE,r16/32,r/m16/32,,,,,,,,,
+CMOVNP,r16/32,r/m16/32,,,,......p.,,,,,Conditional Move - not parity/parity odd
+CMOVPO,r16/32,r/m16/32,,,,,,,,,
+CMOVL,r16/32,r/m16/32,,,,o..s....,,,,,Conditional Move - less/not greater (SF!=OF)
+CMOVNGE,r16/32,r/m16/32,,,,,,,,,
+CMOVNL,r16/32,r/m16/32,,,,o..s....,,,,,Conditional Move - not less/greater or equal (SF=OF)
+CMOVGE,r16/32,r/m16/32,,,,,,,,,
+CMOVLE,r16/32,r/m16/32,,,,o..sz...,,,,,Conditional Move - less or equal/not greater ((ZF=1) OR (SF!=OF))
+CMOVNG,r16/32,r/m16/32,,,,,,,,,
+CMOVNLE,r16/32,r/m16/32,,,,o..sz...,,,,,Conditional Move - not less nor equal/greater ((ZF=0) AND (SF=OF))
+CMOVG,r16/32,r/m16/32,,,,,,,,,
+MOVMSKPS,r32,xmm,,,sse1,,,,,,Extract Packed Single-FP Sign Mask
+MOVMSKPD,r32,xmm,,,sse2,,,,,,Extract Packed Double-FP Sign Mask
+SQRTPS,xmm,xmm/m128,,,sse1,,,,,,Compute Square Roots of Packed Single-FP Values
+SQRTSS,xmm,xmm/m32,,,sse1,,,,,,Compute Square Root of Scalar Single-FP Value
+SQRTPD,xmm,xmm/m128,,,sse2,,,,,,Compute Square Roots of Packed Double-FP Values
+SQRTSD,xmm,xmm/m64,,,sse2,,,,,,Compute Square Root of Scalar Double-FP Value
+RSQRTPS,xmm,xmm/m128,,,sse1,,,,,,Compute Recipr. of Square Roots of Packed Single-FP Values
+RSQRTSS,xmm,xmm/m32,,,sse1,,,,,,Compute Recipr. of Square Root of Scalar Single-FP Value
+RCPPS,xmm,xmm/m128,,,sse1,,,,,,Compute Reciprocals of Packed Single-FP Values
+RCPSS,xmm,xmm/m32,,,sse1,,,,,,Compute Reciprocal of Scalar Single-FP Values
+ANDPS,xmm,xmm/m128,,,sse1,,,,,,Bitwise Logical AND of Packed Single-FP Values
+ANDPD,xmm,xmm/m128,,,sse2,,,,,,Bitwise Logical AND of Packed Double-FP Values
+ANDNPS,xmm,xmm/m128,,,sse1,,,,,,Bitwise Logical AND NOT of Packed Single-FP Values
+ANDNPD,xmm,xmm/m128,,,sse2,,,,,,Bitwise Logical AND NOT of Packed Double-FP Values
+ORPS,xmm,xmm/m128,,,sse1,,,,,,Bitwise Logical OR of Single-FP Values
+ORPD,xmm,xmm/m128,,,sse2,,,,,,Bitwise Logical OR of Double-FP Values
+XORPS,xmm,xmm/m128,,,sse1,,,,,,Bitwise Logical XOR for Single-FP Values
+XORPD,xmm,xmm/m128,,,sse2,,,,,,Bitwise Logical XOR for Double-FP Values
+ADDPS,xmm,xmm/m128,,,sse1,,,,,,Add Packed Single-FP Values
+ADDSS,xmm,xmm/m32,,,sse1,,,,,,Add Scalar Single-FP Values
+ADDPD,xmm,xmm/m128,,,sse2,,,,,,Add Packed Double-FP Values
+ADDSD,xmm,xmm/m64,,,sse2,,,,,,Add Scalar Double-FP Values
+MULPS,xmm,xmm/m128,,,sse1,,,,,,Multiply Packed Single-FP Values
+MULSS,xmm,xmm/m32,,,sse1,,,,,,Multiply Scalar Single-FP Value
+MULPD,xmm,xmm/m128,,,sse2,,,,,,Multiply Packed Double-FP Values
+MULSD,xmm,xmm/m64,,,sse2,,,,,,Multiply Scalar Double-FP Values
+CVTPS2PD,xmm,xmm/m128,,,sse2,,,,,,Convert Packed Single-FP Values to Double-FP Values
+CVTPD2PS,xmm,xmm/m128,,,sse2,,,,,,Convert Packed Double-FP Values to Single-FP Values
+CVTSS2SD,xmm,xmm/m32,,,sse2,,,,,,Convert Scalar Single-FP Value to Scalar Double-FP Value
+CVTSD2SS,xmm,xmm/m64,,,sse2,,,,,,Convert Scalar Double-FP Value to Scalar Single-FP Value
+CVTDQ2PS,xmm,xmm/m128,,,sse2,,,,,,Convert Packed DW Integers to Single-FP Values
+CVTPS2DQ,xmm,xmm/m128,,,sse2,,,,,,Convert Packed Single-FP Values to DW Integers
+CVTTPS2DQ,xmm,xmm/m128,,,sse2,,,,,,Convert with Trunc. Packed Single-FP Values to DW Integers
+SUBPS,xmm,xmm/m128,,,sse1,,,,,,Subtract Packed Single-FP Values
+SUBSS,xmm,xmm/m32,,,sse1,,,,,,Subtract Scalar Single-FP Values
+SUBPD,xmm,xmm/m128,,,sse2,,,,,,Subtract Packed Double-FP Values
+SUBSD,xmm,xmm/m64,,,sse2,,,,,,Subtract Scalar Double-FP Values
+MINPS,xmm,xmm/m128,,,sse1,,,,,,Return Minimum Packed Single-FP Values
+MINSS,xmm,xmm/m32,,,sse1,,,,,,Return Minimum Scalar Single-FP Value
+MINPD,xmm,xmm/m128,,,sse2,,,,,,Return Minimum Packed Double-FP Values
+MINSD,xmm,xmm/m64,,,sse2,,,,,,Return Minimum Scalar Double-FP Value
+DIVPS,xmm,xmm/m128,,,sse1,,,,,,Divide Packed Single-FP Values
+DIVSS,xmm,xmm/m32,,,sse1,,,,,,Divide Scalar Single-FP Values
+DIVPD,xmm,xmm/m128,,,sse2,,,,,,Divide Packed Double-FP Values
+DIVSD,xmm,xmm/m64,,,sse2,,,,,,Divide Scalar Double-FP Values
+MAXPS,xmm,xmm/m128,,,sse1,,,,,,Return Maximum Packed Single-FP Values
+MAXSS,xmm,xmm/m32,,,sse1,,,,,,Return Maximum Scalar Single-FP Value
+MAXPD,xmm,xmm/m128,,,sse2,,,,,,Return Maximum Packed Double-FP Values
+MAXSD,xmm,xmm/m64,,,sse2,,,,,,Return Maximum Scalar Double-FP Value
+PUNPCKLBW,mm,mm/m64,,,mmx,,,,,,Unpack Low Data
+PUNPCKLBW,xmm,xmm/m128,,,sse2,,,,,,Unpack Low Data
+PUNPCKLWD,mm,mm/m64,,,mmx,,,,,,Unpack Low Data
+PUNPCKLWD,xmm,xmm/m128,,,sse2,,,,,,Unpack Low Data
+PUNPCKLDQ,mm,mm/m64,,,mmx,,,,,,Unpack Low Data
+PUNPCKLDQ,xmm,xmm/m128,,,sse2,,,,,,Unpack Low Data
+PACKSSWB,mm,mm/m64,,,mmx,,,,,,Pack with Signed Saturation
+PACKSSWB,xmm,xmm/m128,,,sse2,,,,,,Pack with Signed Saturation
+PCMPGTB,mm,mm/m64,,,mmx,,,,,,Compare Packed Signed Integers for Greater Than
+PCMPGTB,xmm,xmm/m128,,,sse2,,,,,,Compare Packed Signed Integers for Greater Than
+PCMPGTW,mm,mm/m64,,,mmx,,,,,,Compare Packed Signed Integers for Greater Than
+PCMPGTW,xmm,xmm/m128,,,sse2,,,,,,Compare Packed Signed Integers for Greater Than
+PCMPGTD,mm,mm/m64,,,mmx,,,,,,Compare Packed Signed Integers for Greater Than
+PCMPGTD,xmm,xmm/m128,,,sse2,,,,,,Compare Packed Signed Integers for Greater Than
+PACKUSWB,mm,mm/m64,,,mmx,,,,,,Pack with Unsigned Saturation
+PACKUSWB,xmm,xmm/m128,,,sse2,,,,,,Pack with Unsigned Saturation
+PUNPCKHBW,mm,mm/m64,,,mmx,,,,,,Unpack High Data
+PUNPCKHBW,xmm,xmm/m128,,,sse2,,,,,,Unpack High Data
+PUNPCKHWD,mm,mm/m64,,,mmx,,,,,,Unpack High Data
+PUNPCKHWD,xmm,xmm/m128,,,sse2,,,,,,Unpack High Data
+PUNPCKHDQ,mm,mm/m64,,,mmx,,,,,,Unpack High Data
+PUNPCKHDQ,xmm,xmm/m128,,,sse2,,,,,,Unpack High Data
+PACKSSDW,mm,mm/m64,,,mmx,,,,,,Pack with Signed Saturation
+PACKSSDW,xmm,xmm/m128,,,sse2,,,,,,Pack with Signed Saturation
+PUNPCKLQDQ,xmm,xmm/m128,,,sse2,,,,,,Unpack Low Data
+PUNPCKHQDQ,xmm,xmm/m128,,,sse2,,,,,,Unpack High Data
+MOVD,mm,r/m32,,,mmx,,,,,,Move Doubleword
+MOVD,xmm,r/m32,,,sse2,,,,,,Move Doubleword
+MOVQ,mm,mm/m64,,,mmx,,,,,,Move Quadword
+MOVDQA,xmm,xmm/m128,,,sse2,,,,,,Move Aligned Double Quadword
+MOVDQU,xmm,xmm/m128,,,sse2,,,,,,Move Unaligned Double Quadword
+PSHUFW,mm,mm/m64,imm8,,sse1,,,,,,Shuffle Packed Words
+PSHUFLW,xmm,xmm/m128,imm8,,sse2,,,,,,Shuffle Packed Low Words
+PSHUFHW,xmm,xmm/m128,imm8,,sse2,,,,,,Shuffle Packed High Words
+PSHUFD,xmm,xmm/m128,imm8,,sse2,,,,,,Shuffle Packed Doublewords
+PSRLW,mm,imm8,,,mmx,,,,,,Shift Packed Data Right Logical
+PSRLW,xmm,imm8,,,sse2,,,,,,Shift Packed Data Right Logical
+PSRAW,mm,imm8,,,mmx,,,,,,Shift Packed Data Right Arithmetic
+PSRAW,xmm,imm8,,,sse2,,,,,,Shift Packed Data Right Arithmetic
+PSLLW,mm,imm8,,,mmx,,,,,,Shift Packed Data Left Logical
+PSLLW,xmm,imm8,,,sse2,,,,,,Shift Packed Data Left Logical
+PSRLD,mm,imm8,,,mmx,,,,,,Shift Double Quadword Right Logical
+PSRLD,xmm,imm8,,,sse2,,,,,,Shift Double Quadword Right Logical
+PSRAD,mm,imm8,,,mmx,,,,,,Shift Packed Data Right Arithmetic
+PSRAD,xmm,imm8,,,sse2,,,,,,Shift Packed Data Right Arithmetic
+PSLLD,mm,imm8,,,mmx,,,,,,Shift Packed Data Left Logical
+PSLLD,xmm,imm8,,,sse2,,,,,,Shift Packed Data Left Logical
+PSRLQ,mm,imm8,,,mmx,,,,,,Shift Packed Data Right Logical
+PSRLQ,xmm,imm8,,,sse2,,,,,,Shift Packed Data Right Logical
+PSRLDQ,xmm,imm8,,,sse2,,,,,,Shift Double Quadword Right Logical
+PSLLQ,mm,imm8,,,mmx,,,,,,Shift Packed Data Left Logical
+PSLLQ,xmm,imm8,,,sse2,,,,,,Shift Packed Data Left Logical
+PSLLDQ,xmm,imm8,,,sse2,,,,,,Shift Double Quadword Left Logical
+PCMPEQB,mm,mm/m64,,,mmx,,,,,,Compare Packed Data for Equal
+PCMPEQB,xmm,xmm/m128,,,sse2,,,,,,Compare Packed Data for Equal
+PCMPEQW,mm,mm/m64,,,mmx,,,,,,Compare Packed Data for Equal
+PCMPEQW,xmm,xmm/m128,,,sse2,,,,,,Compare Packed Data for Equal
+PCMPEQD,mm,mm/m64,,,mmx,,,,,,Compare Packed Data for Equal
+PCMPEQD,xmm,xmm/m128,,,sse2,,,,,,Compare Packed Data for Equal
+EMMS,,,,,mmx,,,,,,Empty MMX Technology State
+VMREAD,r/m32,r32,,,vmx,,o..szapc,o..szapc,,,Read Field from Virtual-Machine Control Structure
+VMWRITE,r32,r/m32,,,vmx,,o..szapc,o..szapc,,,Write Field to Virtual-Machine Control Structure
+HADDPD,xmm,xmm/m128,,,sse3,,,,,,Packed Double-FP Horizontal Add
+HADDPS,xmm,xmm/m128,,,sse3,,,,,,Packed Single-FP Horizontal Add
+HSUBPD,xmm,xmm/m128,,,sse3,,,,,,Packed Double-FP Horizontal Subtract
+HSUBPS,xmm,xmm/m128,,,sse3,,,,,,Packed Single-FP Horizontal Subtract
+MOVD,r/m32,mm,,,mmx,,,,,,Move Doubleword
+MOVD,r/m32,xmm,,,sse2,,,,,,Move Doubleword
+MOVQ,xmm,xmm/m64,,,sse2,,,,,,Move Quadword
+MOVQ,mm/m64,mm,,,mmx,,,,,,Move Quadword
+MOVDQA,xmm/m128,xmm,,,sse2,,,,,,Move Aligned Double Quadword
+MOVDQU,xmm/m128,xmm,,,sse2,,,,,,Move Unaligned Double Quadword
+JO,rel16/32,,,,,o.......,,,,,Jump short if overflow (OF=1)
+JNO,rel16/32,,,,,o.......,,,,,Jump short if not overflow (OF=0)
+JB,rel16/32,,,,,.......c,,,,,Jump short if below/not above or equal/carry (CF=1)
+JNAE,rel16/32,,,,,,,,,,
+JC,rel16/32,,,,,,,,,,
+JNB,rel16/32,,,,,.......c,,,,,Jump short if not below/above or equal/not carry (CF=0)
+JAE,rel16/32,,,,,,,,,,
+JNC,rel16/32,,,,,,,,,,
+JZ,rel16/32,,,,,....z...,,,,,Jump short if zero/equal (ZF=0)
+JE,rel16/32,,,,,,,,,,
+JNZ,rel16/32,,,,,....z...,,,,,Jump short if not zero/not equal (ZF=1)
+JNE,rel16/32,,,,,,,,,,
+JBE,rel16/32,,,,,....z..c,,,,,Jump short if below or equal/not above (CF=1 AND ZF=1)
+JNA,rel16/32,,,,,,,,,,
+JNBE,rel16/32,,,,,....z..c,,,,,Jump short if not below or equal/above (CF=0 AND ZF=0)
+JA,rel16/32,,,,,,,,,,
+JS,rel16/32,,,,,...s....,,,,,Jump short if sign (SF=1)
+JNS,rel16/32,,,,,...s....,,,,,Jump short if not sign (SF=0)
+JP,rel16/32,,,,,......p.,,,,,Jump short if parity/parity even (PF=1)
+JPE,rel16/32,,,,,,,,,,
+JNP,rel16/32,,,,,......p.,,,,,Jump short if not parity/parity odd
+JPO,rel16/32,,,,,,,,,,
+JL,rel16/32,,,,,o..s....,,,,,Jump short if less/not greater (SF!=OF)
+JNGE,rel16/32,,,,,,,,,,
+JNL,rel16/32,,,,,o..s....,,,,,Jump short if not less/greater or equal (SF=OF)
+JGE,rel16/32,,,,,,,,,,
+JLE,rel16/32,,,,,o..sz...,,,,,Jump short if less or equal/not greater ((ZF=1) OR (SF!=OF))
+JNG,rel16/32,,,,,,,,,,
+JNLE,rel16/32,,,,,o..sz...,,,,,Jump short if not less nor equal/greater ((ZF=0) AND (SF=OF))
+JG,rel16/32,,,,,,,,,,
+SETO,r/m8,,,,,o.......,,,,,Set Byte on Condition - overflow (OF=1)
+SETNO,r/m8,,,,,o.......,,,,,Set Byte on Condition - not overflow (OF=0)
+SETB,r/m8,,,,,.......c,,,,,Set Byte on Condition - below/not above or equal/carry (CF=1)
+SETNAE,r/m8,,,,,,,,,,
+SETC,r/m8,,,,,,,,,,
+SETNB,r/m8,,,,,.......c,,,,,Set Byte on Condition - not below/above or equal/not carry (CF=0)
+SETAE,r/m8,,,,,,,,,,
+SETNC,r/m8,,,,,,,,,,
+SETZ,r/m8,,,,,....z...,,,,,Set Byte on Condition - zero/equal (ZF=0)
+SETE,r/m8,,,,,,,,,,
+SETNZ,r/m8,,,,,....z...,,,,,Set Byte on Condition - not zero/not equal (ZF=1)
+SETNE,r/m8,,,,,,,,,,
+SETBE,r/m8,,,,,....z..c,,,,,Set Byte on Condition - below or equal/not above (CF=1 AND ZF=1)
+SETNA,r/m8,,,,,,,,,,
+SETNBE,r/m8,,,,,....z..c,,,,,Set Byte on Condition - not below or equal/above (CF=0 AND ZF=0)
+SETA,r/m8,,,,,,,,,,
+SETS,r/m8,,,,,...s....,,,,,Set Byte on Condition - sign (SF=1)
+SETNS,r/m8,,,,,...s....,,,,,Set Byte on Condition - not sign (SF=0)
+SETP,r/m8,,,,,......p.,,,,,Set Byte on Condition - parity/parity even (PF=1)
+SETPE,r/m8,,,,,,,,,,
+SETNP,r/m8,,,,,......p.,,,,,Set Byte on Condition - not parity/parity odd
+SETPO,r/m8,,,,,,,,,,
+SETL,r/m8,,,,,o..s....,,,,,Set Byte on Condition - less/not greater (SF!=OF)
+SETNGE,r/m8,,,,,,,,,,
+SETNL,r/m8,,,,,o..s....,,,,,Set Byte on Condition - not less/greater or equal (SF=OF)
+SETGE,r/m8,,,,,,,,,,
+SETLE,r/m8,,,,,o..sz...,,,,,Set Byte on Condition - less or equal/not greater ((ZF=1) OR (SF!=OF))
+SETNG,r/m8,,,,,,,,,,
+SETNLE,r/m8,,,,,o..sz...,,,,,Set Byte on Condition - not less nor equal/greater ((ZF=0) AND (SF=OF))
+SETG,r/m8,,,,,,,,,,
+PUSH,FS,,,,,,,,,,"Push Word, Doubleword or Quadword Onto the Stack"
+POP,FS,,,,,,,,,,Pop a Value from the Stack
+CPUID,IA32_BIOS_…,EAX,ECX,...,,,,,,,CPU Identification
+BT,r/m16/32,r16/32,,,,,o..szapc,.......c,o..szap.,,Bit Test
+SHLD,r/m16/32,r16/32,imm8,,,,o..szapc,o..sz.pc,o....a.c,,Double Precision Shift Left
+SHLD,r/m16/32,r16/32,CL,,,,o..szapc,o..sz.pc,o....a.c,,Double Precision Shift Left
+PUSH,GS,,,,,,,,,,"Push Word, Doubleword or Quadword Onto the Stack"
+POP,GS,,,,,,,,,,Pop a Value from the Stack
+RSM,Flags,,,,,,,,,,Resume from System Management Mode
+BTS,r/m16/32,r16/32,,,,,o..szapc,.......c,o..szap.,,Bit Test and Set
+SHRD,r/m16/32,r16/32,imm8,,,,o..szapc,o..sz.pc,o....a.c,,Double Precision Shift Right
+SHRD,r/m16/32,r16/32,CL,,,,o..szapc,o..sz.pc,o....a.c,,Double Precision Shift Right
+FXSAVE,m512,ST,ST1,...,,,,,,,"Save x87 FPU, MMX, XMM, and MXCSR State"
+FXRSTOR,ST,ST1,ST2,...,,,,,,,"Restore x87 FPU, MMX, XMM, and MXCSR State"
+LDMXCSR,m32,,,,sse1,,,,,,Load MXCSR Register
+STMXCSR,m32,,,,sse1,,,,,,Store MXCSR Register State
+XSAVE,m,EDX,EAX,...,,,,,,,Save Processor Extended States
+LFENCE,,,,,sse2,,,,,,Load Fence
+XRSTOR,ST,ST1,ST2,...,,,,,,,Restore Processor Extended States
+MFENCE,,,,,sse2,,,,,,Memory Fence
+SFENCE,,,,,sse1,,,,,,Store Fence
+CLFLUSH,m8,,,,sse2,,,,,,Flush Cache Line
+IMUL,r16/32,r/m16/32,,,,,o..szapc,o......c,...szap.,,Signed Multiply
+CMPXCHG,r/m8,AL,r8,,,,o..szapc,o..szapc,,,Compare and Exchange
+CMPXCHG,r/m16/32,eAX,r16/32,,,,o..szapc,o..szapc,,,Compare and Exchange
+LSS,SS,r16/32,m16:16/32,,,,,,,,Load Far Pointer
+BTR,r/m16/32,r16/32,,,,,o..szapc,.......c,o..szap.,,Bit Test and Reset
+LFS,FS,r16/32,m16:16/32,,,,,,,,Load Far Pointer
+LGS,GS,r16/32,m16:16/32,,,,,,,,Load Far Pointer
+MOVZX,r16/32,r/m8,,,,,,,,,Move with Zero-Extend
+MOVZX,r16/32,r/m16,,,,,,,,,Move with Zero-Extend
+POPCNT,r16/32,r/m16/32,,,,,o..szapc,,,o..s.apc,Bit Population Count
+UD,r,r/m,,,,,,,,,Undefined Instruction
+BT,r/m16/32,imm8,,,,,o..szapc,.......c,o..szap.,,Bit Test
+BTS,r/m16/32,imm8,,,,,o..szapc,.......c,o..szap.,,Bit Test and Set
+BTR,r/m16/32,imm8,,,,,o..szapc,.......c,o..szap.,,Bit Test and Reset
+BTC,r/m16/32,imm8,,,,,o..szapc,.......c,o..szap.,,Bit Test and Complement
+BTC,r/m16/32,r16/32,,,,,o..szapc,.......c,o..szap.,,Bit Test and Complement
+BSF,r16/32,r/m16/32,,,,,o..szapc,....z...,o..s.apc,,Bit Scan Forward
+BSR,r16/32,r/m16/32,,,,,o..szapc,....z...,o..s.apc,,Bit Scan Reverse
+MOVSX,r16/32,r/m8,,,,,,,,,Move with Sign-Extension
+MOVSX,r16/32,r/m16,,,,,,,,,Move with Sign-Extension
+XADD,r/m8,r8,,,,,o..szapc,o..szapc,,,Exchange and Add
+XADD,r/m16/32,r16/32,,,,,o..szapc,o..szapc,,,Exchange and Add
+CMPPS,xmm,xmm/m128,imm8,,sse1,,,,,,Compare Packed Single-FP Values
+CMPSS,xmm,xmm/m32,imm8,,sse1,,,,,,Compare Scalar Single-FP Values
+CMPPD,xmm,xmm/m128,imm8,,sse2,,,,,,Compare Packed Double-FP Values
+CMPSD,xmm,xmm/m64,imm8,,sse2,,,,,,Compare Scalar Double-FP Values
+MOVNTI,m32,r32,,,sse2,,,,,,Store Doubleword Using Non-Temporal Hint
+PINSRW,mm,r32,imm8,,sse1,,,,,,Insert Word
+PINSRW,mm,m16,imm8,,,,,,,,
+PINSRW,xmm,r32,imm8,,sse1,,,,,,Insert Word
+PINSRW,xmm,m16,imm8,,,,,,,,
+PEXTRW,r32,mm,imm8,,sse1,,,,,,Extract Word
+PEXTRW,r32,xmm,imm8,,sse1,,,,,,Extract Word
+SHUFPS,xmm,xmm/m128,imm8,,sse1,,,,,,Shuffle Packed Single-FP Values
+SHUFPD,xmm,xmm/m128,imm8,,sse2,,,,,,Shuffle Packed Double-FP Values
+CMPXCHG8B,m64,EAX,EDX,...,,,....z...,....z...,,,Compare and Exchange Bytes
+VMPTRLD,m64,,,,vmx,,o..szapc,o..szapc,,,Load Pointer to Virtual-Machine Control Structure
+VMCLEAR,m64,,,,vmx,,o..szapc,o..szapc,,,Clear Virtual-Machine Control Structure
+VMXON,m64,,,,vmx,,o..szapc,o..szapc,,,Enter VMX Operation
+VMPTRST,m64,,,,vmx,,o..szapc,o..szapc,,,Store Pointer to Virtual-Machine Control Structure
+BSWAP,r16/32,,,,,,,,,,Byte Swap
+ADDSUBPD,xmm,xmm/m128,,,sse3,,,,,,Packed Double-FP Add/Subtract
+ADDSUBPS,xmm,xmm/m128,,,sse3,,,,,,Packed Single-FP Add/Subtract
+PSRLW,mm,mm/m64,,,mmx,,,,,,Shift Packed Data Right Logical
+PSRLW,xmm,xmm/m128,,,sse2,,,,,,Shift Packed Data Right Logical
+PSRLD,mm,mm/m64,,,mmx,,,,,,Shift Packed Data Right Logical
+PSRLD,xmm,xmm/m128,,,sse2,,,,,,Shift Packed Data Right Logical
+PSRLQ,mm,mm/m64,,,mmx,,,,,,Shift Packed Data Right Logical
+PSRLQ,xmm,xmm/m128,,,sse2,,,,,,Shift Packed Data Right Logical
+PADDQ,mm,mm/m64,,,sse2,,,,,,Add Packed Quadword Integers
+PADDQ,xmm,xmm/m128,,,sse2,,,,,,Add Packed Quadword Integers
+PMULLW,mm,mm/m64,,,mmx,,,,,,Multiply Packed Signed Integers and Store Low Result
+PMULLW,xmm,xmm/m128,,,sse2,,,,,,Multiply Packed Signed Integers and Store Low Result
+MOVQ,xmm/m64,xmm,,,sse2,,,,,,Move Quadword
+MOVQ2DQ,xmm,mm,,,sse2,,,,,,Move Quadword from MMX Technology to XMM Register
+MOVDQ2Q,mm,xmm,,,sse2,,,,,,Move Quadword from XMM to MMX Technology Register
+PMOVMSKB,r32,mm,,,sse1,,,,,,Move Byte Mask
+PMOVMSKB,r32,xmm,,,sse1,,,,,,Move Byte Mask
+PSUBUSB,mm,mm/m64,,,mmx,,,,,,Subtract Packed Unsigned Integers with Unsigned Saturation
+PSUBUSB,xmm,xmm/m128,,,sse2,,,,,,Subtract Packed Unsigned Integers with Unsigned Saturation
+PSUBUSW,mm,mm/m64,,,mmx,,,,,,Subtract Packed Unsigned Integers with Unsigned Saturation
+PSUBUSW,xmm,xmm/m128,,,sse2,,,,,,Subtract Packed Unsigned Integers with Unsigned Saturation
+PMINUB,mm,mm/m64,,,sse1,,,,,,Minimum of Packed Unsigned Byte Integers
+PMINUB,xmm,xmm/m128,,,sse1,,,,,,Minimum of Packed Unsigned Byte Integers
+PAND,mm,mm/m64,,,mmx,,,,,,Logical AND
+PAND,xmm,xmm/m128,,,sse2,,,,,,Logical AND
+PADDUSB,mm,mm/m64,,,mmx,,,,,,Add Packed Unsigned Integers with Unsigned Saturation
+PADDUSB,xmm,xmm/m128,,,sse2,,,,,,Add Packed Unsigned Integers with Unsigned Saturation
+PADDUSW,mm,mm/m64,,,mmx,,,,,,Add Packed Unsigned Integers with Unsigned Saturation
+PADDUSW,xmm,xmm/m128,,,sse2,,,,,,Add Packed Unsigned Integers with Unsigned Saturation
+PMAXUB,mm,mm/m64,,,sse1,,,,,,Maximum of Packed Unsigned Byte Integers
+PMAXUB,xmm,xmm/m128,,,sse1,,,,,,Maximum of Packed Unsigned Byte Integers
+PANDN,mm,mm/m64,,,mmx,,,,,,Logical AND NOT
+PANDN,xmm,xmm/m128,,,sse2,,,,,,Logical AND NOT
+PAVGB,mm,mm/m64,,,sse1,,,,,,Average Packed Integers
+PAVGB,xmm,xmm/m128,,,sse1,,,,,,Average Packed Integers
+PSRAW,mm,mm/m64,,,mmx,,,,,,Shift Packed Data Right Arithmetic
+PSRAW,xmm,xmm/m128,,,sse2,,,,,,Shift Packed Data Right Arithmetic
+PSRAD,mm,mm/m64,,,mmx,,,,,,Shift Packed Data Right Arithmetic
+PSRAD,xmm,xmm/m128,,,sse2,,,,,,Shift Packed Data Right Arithmetic
+PAVGW,mm,mm/m64,,,sse1,,,,,,Average Packed Integers
+PAVGW,xmm,xmm/m128,,,sse1,,,,,,Average Packed Integers
+PMULHUW,mm,mm/m64,,,sse1,,,,,,Multiply Packed Unsigned Integers and Store High Result
+PMULHUW,xmm,xmm/m128,,,sse1,,,,,,Multiply Packed Unsigned Integers and Store High Result
+PMULHW,mm,mm/m64,,,mmx,,,,,,Multiply Packed Signed Integers and Store High Result
+PMULHW,xmm,xmm/m128,,,sse2,,,,,,Multiply Packed Signed Integers and Store High Result
+CVTPD2DQ,xmm,xmm/m128,,,sse2,,,,,,Convert Packed Double-FP Values to DW Integers
+CVTTPD2DQ,xmm,xmm/m128,,,sse2,,,,,,Convert with Trunc. Packed Double-FP Values to DW Integers
+CVTDQ2PD,xmm,xmm/m128,,,sse2,,,,,,Convert Packed DW Integers to Double-FP Values
+MOVNTQ,m64,mm,,,sse1,,,,,,Store of Quadword Using Non-Temporal Hint
+MOVNTDQ,m128,xmm,,,sse2,,,,,,Store Double Quadword Using Non-Temporal Hint
+PSUBSB,mm,mm/m64,,,mmx,,,,,,Subtract Packed Signed Integers with Signed Saturation
+PSUBSB,xmm,xmm/m128,,,sse2,,,,,,Subtract Packed Signed Integers with Signed Saturation
+PSUBSW,mm,mm/m64,,,mmx,,,,,,Subtract Packed Signed Integers with Signed Saturation
+PSUBSW,xmm,xmm/m128,,,sse2,,,,,,Subtract Packed Signed Integers with Signed Saturation
+PMINSW,mm,mm/m64,,,sse1,,,,,,Minimum of Packed Signed Word Integers
+PMINSW,xmm,xmm/m128,,,sse1,,,,,,Minimum of Packed Signed Word Integers
+POR,mm,mm/m64,,,mmx,,,,,,Bitwise Logical OR
+POR,xmm,xmm/m128,,,sse2,,,,,,Bitwise Logical OR
+PADDSB,mm,mm/m64,,,mmx,,,,,,Add Packed Signed Integers with Signed Saturation
+PADDSB,xmm,xmm/m128,,,sse2,,,,,,Add Packed Signed Integers with Signed Saturation
+PADDSW,mm,mm/m64,,,mmx,,,,,,Add Packed Signed Integers with Signed Saturation
+PADDSW,xmm,xmm/m128,,,sse2,,,,,,Add Packed Signed Integers with Signed Saturation
+PMAXSW,mm,mm/m64,,,sse1,,,,,,Maximum of Packed Signed Word Integers
+PMAXSW,xmm,xmm/m128,,,sse1,,,,,,Maximum of Packed Signed Word Integers
+PXOR,mm,mm/m64,,,mmx,,,,,,Logical Exclusive OR
+PXOR,xmm,xmm/m128,,,sse2,,,,,,Logical Exclusive OR
+LDDQU,xmm,m128,,,sse3,,,,,,Load Unaligned Integer 128 Bits
+PSLLW,mm,mm/m64,,,mmx,,,,,,Shift Packed Data Left Logical
+PSLLW,xmm,xmm/m128,,,sse2,,,,,,Shift Packed Data Left Logical
+PSLLD,mm,mm/m64,,,mmx,,,,,,Shift Packed Data Left Logical
+PSLLD,xmm,xmm/m128,,,sse2,,,,,,Shift Packed Data Left Logical
+PSLLQ,mm,mm/m64,,,mmx,,,,,,Shift Packed Data Left Logical
+PSLLQ,xmm,xmm/m128,,,sse2,,,,,,Shift Packed Data Left Logical
+PMULUDQ,mm,mm/m64,,,sse2,,,,,,Multiply Packed Unsigned DW Integers
+PMULUDQ,xmm,xmm/m128,,,sse2,,,,,,Multiply Packed Unsigned DW Integers
+PMADDWD,mm,mm/m64,,,mmx,,,,,,Multiply and Add Packed Integers
+PMADDWD,xmm,xmm/m128,,,sse2,,,,,,Multiply and Add Packed Integers
+PSADBW,mm,mm/m64,,,sse1,,,,,,Compute Sum of Absolute Differences
+PSADBW,xmm,xmm/m128,,,sse1,,,,,,Compute Sum of Absolute Differences
+MASKMOVQ,m64,mm,mm,,sse1,,,,,,Store Selected Bytes of Quadword
+MASKMOVDQU,m128,xmm,xmm,,sse2,,,,,,Store Selected Bytes of Double Quadword
+PSUBB,mm,mm/m64,,,mmx,,,,,,Subtract Packed Integers
+PSUBB,xmm,xmm/m128,,,sse2,,,,,,Subtract Packed Integers
+PSUBW,mm,mm/m64,,,mmx,,,,,,Subtract Packed Integers
+PSUBW,xmm,xmm/m128,,,sse2,,,,,,Subtract Packed Integers
+PSUBD,mm,mm/m64,,,mmx,,,,,,Subtract Packed Integers
+PSUBD,xmm,xmm/m128,,,sse2,,,,,,Subtract Packed Integers
+PSUBQ,mm,mm/m64,,,sse2,,,,,,Subtract Packed Quadword Integers
+PSUBQ,xmm,xmm/m128,,,sse2,,,,,,Subtract Packed Quadword Integers
+PADDB,mm,mm/m64,,,mmx,,,,,,Add Packed Integers
+PADDB,xmm,xmm/m128,,,sse2,,,,,,Add Packed Integers
+PADDW,mm,mm/m64,,,mmx,,,,,,Add Packed Integers
+PADDW,xmm,xmm/m128,,,sse2,,,,,,Add Packed Integers
+PADDD,mm,mm/m64,,,mmx,,,,,,Add Packed Integers
+PADDD,xmm,xmm/m128,,,sse2,,,,,,Add Packed Integers

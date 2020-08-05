@@ -1,0 +1,5 @@
+constant-time implementation of MEE-CBC (mac-then-encode-then-CBC-encrypt)
+
+
+
+

@@ -1,0 +1,17 @@
+Makefile
+VERSION
+backend
+cfrontend
+common
+cparser
+configure
+driver
+extraction
+ia32
+lib
+taintanalysis
+
+./test:
+crypto
+simd
+taintanalysis
