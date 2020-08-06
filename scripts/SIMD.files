@@ -9,9 +9,9 @@ driver
 extraction
 ia32
 lib
+pg
 taintanalysis
 
 ./test:
-crypto
 simd
 taintanalysis
