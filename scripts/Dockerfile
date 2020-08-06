@@ -16,7 +16,3 @@ RUN git clone https://github.com/haslab/ccomp-simd.git
 
 RUN (cd ccomp-simd; tar xvzf ../compcert-2.2.tgz; make clean_setup_build_dir; cd build; ./configure ia32-linux; make depend; make)
 
-#RUN git clone --recursive https://github.com/haslab/CircGen.git
-
-#RUN (cd CircGen; make clean_setup_build_dir; cd build; ./configure bool-circ-linux; make depend; make)
-
