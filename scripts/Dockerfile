@@ -1,6 +1,6 @@
 FROM coqorg/coq:8.4.6
 
-RUN sudo apt-get update && sudo apt-get install -y vim wget
+RUN sudo apt-get update && sudo apt-get install -y vim wget gcc-multilib
 
 RUN opam install -y coq-mathcomp-algebra.1.6.1
 
