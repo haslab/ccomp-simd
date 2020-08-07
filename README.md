@@ -1,4 +1,4 @@
-# ccomp-sind - SIMD extensions for CompCert
+# **ccomp-simd** - SIMD extensions for CompCert
 
 This is a prototype of the **ccomp-simd** tool -- an extension of the
 *CompCert - a certified compiler for C*
@@ -12,8 +12,9 @@ checker, based on a fine-grained type system that assigns security
 types to each location (register or memory location) at each program
 point and calling context.
 
+---
 
-## Instalation
+## Installation
 
 The original version of this development have been completed in 2016,
 and hence relies on fairly old versions of the supporting
@@ -28,7 +29,7 @@ following packages/versions:
    generator (version 20171222)
  * [SsReflect](http://ssr.msr-inria.inria.fr) Ssreflect/MathComp (version 1.6.1)
 
-### Alternative #1: use a _Docker_ container
+### Alternative #1: use [Docker](https://www.docker.com)
 
 The simplest way of experimenting with **ccomp-simd** is by resorting to a _Docker_ container that includes all the mentioned packages. A [Dockerfile](scripts/Dockerfile) is provided for it:
 
@@ -38,7 +39,7 @@ docker build https://raw.githubusercontent.com/haslab/ccomp-simd/master/scripts/
 
 The build process creates a _docker_ container with all the required packages and the (compiled) **ccomp_simd** tool.
 
-### Alternative #2: manual instalation
+### Alternative #2: manual installation
 
 #### step 1: install dependencies
 
@@ -71,7 +72,7 @@ includes a target to setup the `build` directory.
 ```bash
 $ make clean_setup_build_dir
 $ cd build
-$ ./configure bool-circ-$OS
+$ ./configure ia32-$OS
 $ make depend
 $ make
 ```
