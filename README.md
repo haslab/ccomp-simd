@@ -1,22 +1,22 @@
-# CircGen - Circuit Description Generation tool
+# ccomp-sind - SIMD extensions for CompCert
 
 This is a prototype of the **ccomp-simd** tool -- an extension of the
 *CompCert - a certified compiler for C*
 (http://compcert.inria.fr) supporting vector instructions on the `x64`
 architecture. Please refer to the original CompCert's
 [README](README) and its [manual](http://compcert.inria.fr/man/) for
-addition information on CompCert on its copyright/usage instructions.
+addition information on CompCert and on its copyright/usage instructions.
 
 The current prototype includes also an intrinsics-aware constant-time
-checker, based on a fine-grained type system that assigns a security types
-at each program point and calling context to each location (register
-or memory location).
+checker, based on a fine-grained type system that assigns security
+types to each location (register or memory location) at each program
+point and calling context.
 
 
 ## Instalation
 
 The original version of this development have been completed in 2016,
-and hence relies on fairly old version of the supporting
+and hence relies on fairly old versions of the supporting
 tools<sup>[1](#myfootnote1)</sup>. Specifically, it depends on the
 following packages/versions:
 
@@ -57,7 +57,7 @@ opam install coq-mathcomp-algebra.1.6.1
 
 ```bash
 $ git clone https://github.com/haslab/ccomp-simd.git
-$ wget wget http://compcert.inria.fr/release/compcert-2.2.tgz
+$ wget http://compcert.inria.fr/release/compcert-2.2.tgz
 $ cd ccomp_simd
 $ tar xvzf ../compcert-2.2.tgz
 ```
