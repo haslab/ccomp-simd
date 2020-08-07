@@ -62,7 +62,7 @@ $ cd ccomp_simd
 $ tar xvzf ../compcert-2.2.tgz
 ```
 
-### Preparing the `build` directory and compile the tool
+#### step 3: prepare the `build` directory and compile the tool
 
 The tool is compiled in a dedicated `build` directory that only has
 links to both CompCert's and ccomp-simd's source files. The toplevel `Makefile`
@@ -81,4 +81,4 @@ where `$OS` is either `macosx` or `linux`.
 
 ---
 
-<a name="myfootnote1">1</a>: Porting the development to the current versions of the support tools is in progress.
+<a name="myfootnote1">1</a>: The port of the development to the current versions of the supporting tools is in progress.
