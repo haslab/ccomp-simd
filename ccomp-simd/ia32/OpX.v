@@ -13,10 +13,12 @@ Set Implicit Arguments.
 (* SHALL WE NEED COMPARISONS??? *)
 
 Inductive operationX : Type :=
+ | OXzero: operationX           (**r [rd = 0] (integer) *)
+ | OXone: operationX            (**r [rd = 1] (integer) *)
+(*
  (* logical operations *)
  | OXIxor: operationX		(**r [rd = r1 ^ r2] (integer) *)
  | OXFxor: operationX		(**r [rd = r1 ^ r2] (float) *)
-(*
  | OXIand: operationX		(**r [rd = r1 & r2] (integer) *)
  | OXFand: operationX		(**r [rd = r1 & r2] (integer) *)
  | OXIandnot: operationX	(**r [rd = r1 & r2] (integer) *)
@@ -46,11 +48,8 @@ obs: this list never ends --- should it be generated?
 
 Definition eq_operationX (x y: operationX): {x=y} + {x<>y}.
 Proof.
-  generalize Int.eq_dec; intro.
-  generalize Float.eq_dec; intro.
-  generalize Int64.eq_dec; intro.
-  decide equality.
-Defined.
+decide equality.
+Defined. 
 
 Definition eval_xor128 (v1 v2:val) : option val :=
  match v1, v2 with
@@ -62,8 +61,10 @@ Definition eval_operationX
     (F V: Type) (genv: Genv.t F V) (sp: val)
     (op: operationX) (vl: list val) (m: mem): option val :=
   match op, vl with
-  | (OXIxor|OXFxor), v1::v2::nil => eval_xor128 v1 v2
+  | OXzero, nil => Some (V128 (Int128.zero))
+  | OXone, nil => Some (V128 (Int128.one))
 (*
+  | (OXIxor|OXFxor), v1::v2::nil => eval_xor128 v1 v2
   | (OXIand|OXFand), v1::v2::nil => eval_and128 v1 v2
   | (OXIandnot|OXFandnot), v1::v2::nil => eval_andnot128 v1 v2
   | (OXIor|OXFor) v1::v2::nil => eval_or128 v1 v2
@@ -74,24 +75,23 @@ Definition eval_operationX
 Definition tvec := Tvecdata.
 
 Definition ctype_of_operationX (op:operationX) : typelist*type :=
-  match op with
+  match op with 
+  | OXzero => (Tnil, tvec)
+  | OXone => (Tnil, tvec)
+(*
   | (OXIxor|OXFxor(*|OXIand|OXFand|OXIandnot|OXFandnot*)) =>
      (Tcons tvec (Tcons tvec Tnil), tvec)
+*)
   end.
 
 Definition type_of_operationX (op: operationX) : list typ * typ :=
   (typlist_of_typelist (fst (ctype_of_operationX op)),
    typ_of_type (snd (ctype_of_operationX op))).
-(*  match op with
-  | (OXIxor|OXFxor(*|OXIand|OXFand|OXIandnot|OXFandnot*)) =>
-     (T128::T128::nil, T128)
-  end.*)
-
 
 Definition two_address_opX (op: operationX) : bool := 
  match op with
- | OXIxor | OXFxor => true
-(* | _ => false*)
+(* | OXIxor | OXFxor => true *)
+ | _ => false
  end.
 
 Lemma type_of_operationX_sound:
@@ -99,7 +99,10 @@ Lemma type_of_operationX_sound:
   eval_operationX genv sp op vl m = Some v ->
   Val.has_type v (snd (type_of_operationX op)).
 Proof.
-admit.
+intros F V penv op vl x y m.
+destruct op;
+repeat (destruct vl; simpl; intros; try discriminate H);
+inversion_clear H; constructor.
 Qed.
 
 Definition opX_depends_on_memory (op: operationX) : bool :=
@@ -113,7 +116,6 @@ Lemma opX_depends_on_memory_correct:
   eval_operationX ge sp op args m1 = eval_operationX ge sp op args m2.
 Proof.
   intros until m2. destruct op; simpl; try congruence.
- (*  destruct c; simpl; try congruence. reflexivity*) 
 Qed.
 
 Lemma eval_operationX_inj:
@@ -123,7 +125,10 @@ Lemma eval_operationX_inj:
   eval_operationX genv sp1 op vl1 m1 = Some v1 ->
   exists v2, eval_operationX genv sp2 op vl2 m2 = Some v2 /\ val_inject f v1 v2.
 Proof.
-admit.
+intros F V genv m1 m2 f o _sp1 vl1 _sp2 vl2 v Hinj Hinjl.
+destruct o; destruct vl1; simpl; intro H; simplify_eq H; clear H; intro E;
+rewrite E; exists v; subst; destruct vl2; auto;
+inversion Hinjl.
 Qed.
 
 Lemma eval_operationX_lessdef:
@@ -133,5 +138,8 @@ Lemma eval_operationX_lessdef:
   eval_operationX genv sp op vl1 m1 = Some v1 ->
   exists v2, eval_operationX genv sp op vl2 m2 = Some v2 /\ Val.lessdef v1 v2.
 Proof.
-admit.
+intros F V genv _m1 _m2 minj sp op vl1 vl2 v1 m1 m2 Hless Hext.
+destruct op; simpl; destruct vl1; intro H; simplify_eq H; clear H; intro E;
+rewrite E; exists v1; subst; destruct vl2; auto;
+inversion_clear Hless.
 Qed.

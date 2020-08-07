@@ -1818,6 +1818,9 @@ Definition size i := Zsize (Int.unsigned i).
 Lemma Zsize_pos i : 0 <= Zsize i.
 Proof. unfold Zsize; destruct i; Psatz.lia. Qed.
 
+Lemma Zsize_unsigned i: Zsize (Int.unsigned i) = Int.size i.
+Proof. reflexivity. Qed.
+
 Lemma two_p_pos p : 0 <= p → 0 < two_p p.
 Proof.
   intros H. destruct p. reflexivity. simpl. unfold two_power_pos. Psatz.lia.
@@ -1826,7 +1829,16 @@ Qed.
 
 Lemma and_interval a b : Int.unsigned (Int.and a b) < two_p (size b).
 Proof.
-Admitted.
+generalize (Int.and_interval a b); intros [_?].
+assert (size b = Int.size b).
+ unfold size, Int.size; auto.
+rewrite H0.
+assert (two_p (Z.min (Int.size a) (Int.size b)) <= two_p (size b)).
+ apply two_p_monotone.
+ generalize (Int.size_range a) (Int.size_range b); intros [??] [??].
+ Psatz.lia.
+eapply Z.lt_le_trans; eauto.
+Qed.
 
 Lemma ssi_and_sound x y : lift_binop Int.and (γ x) (γ y) ⊆ γ (ssi_and x y).
 Proof.
