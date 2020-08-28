@@ -16,11 +16,9 @@
 (** This file defines a number of data types and operations used in
   the abstract syntax trees of many of the intermediate languages. *)
 
-Require Import Coqlib.
-Require String.
-Require Import Errors.
-Require Import Integers.
-Require Import Floats.
+Require Import String.
+Require Import Coqlib Maps Errors Integers Floats.
+Require Archi.
 
 Set Implicit Arguments.
 
@@ -33,53 +31,66 @@ Definition ident := positive.
 
 Definition ident_eq := peq.
 
-Parameter ident_of_string : String.string -> ident.
-
-(** The intermediate languages are weakly typed, using only five
-  types: [Tint] for 32-bit integers and pointers, [Tfloat] for 64-bit
-  floating-point numbers, [Tlong] for 64-bit integers, [T128] for
-  128-bit integers, and [Tsingle] for 32-bit floating-point numbers. *)
+(** The intermediate languages are weakly typed, using the following types: *)
 
 Inductive typ : Type :=
-  | Tint
-  | Tfloat
-  | Tlong
-  | T128
-  | Tsingle.
-
-Definition typesize (ty: typ) : Z :=
-  match ty with
-  | Tint => 4 
-  | Tfloat => 8 
-  | Tlong => 8 
-  | T128 => 16
-  | Tsingle => 4
-  end.
-
-Lemma typesize_pos: forall ty, typesize ty > 0.
-Proof. destruct ty; simpl; omega. Qed.
+  | Tint                	(**r 32-bit integers or pointers *)
+  | Tfloat              	(**r 64-bit double-precision floats *)
+  | Tlong               	(**r 64-bit integers *)
+  | Tsingle             	(**r 32-bit single-precision floats *)
+  | Tany32              	(**r any 32-bit value *)
+  | Tany64: typ         	(**r any 64-bit value, i.e. any value *)
+  | Tvec: Archi.vec_typ -> typ. (**r SIMD packed vector *)
 
 Lemma typ_eq: forall (t1 t2: typ), {t1=t2} + {t1<>t2}.
-Proof. decide equality. Defined.
+Proof. generalize Archi.vec_typ_eq; decide equality. Defined.
 Global Opaque typ_eq.
-
-Definition opt_typ_eq: forall (t1 t2: option typ), {t1=t2} + {t1<>t2}
-                     := option_eq typ_eq.
 
 Definition list_typ_eq: forall (l1 l2: list typ), {l1=l2} + {l1<>l2}
                      := list_eq_dec typ_eq.
 
-(** All values of type [Tsingle] are also of type [Tfloat].  This
-  corresponds to the following subtyping relation over types. *)
+Definition Tptr : typ := if Archi.ptr64 then Tlong else Tint.
+
+(** [typerank] is the 'log2' of the number of 32bit slots that fits in
+    a value of [ty]. *)
+Definition typerank (ty: typ) : nat :=
+  match ty with
+  | Tint => 0%nat
+  | Tfloat => 1%nat
+  | Tlong => 1%nat
+  | Tsingle => 0%nat
+  | Tany32 => 0%nat
+  | Tany64 => 1%nat
+  | Tvec ty => Archi.vec_typ_rnk ty
+  end.
+
+(** [typelocsize] is the number of 32bit slots occupied by [ty]. *)
+Definition typelocsize (ty: typ): Z := two_power_nat (typerank ty).
+
+Lemma typelocsize_pos: forall ty, typelocsize ty > 0.
+Proof. intros; apply two_power_nat_pos. Qed.
+
+Definition typesize (ty: typ) := 4 * typelocsize ty.
+
+Lemma typesize_pos: forall ty, typesize ty > 0.
+Proof. intros ty; generalize (typelocsize_pos ty); unfold typesize; omega. Qed.
+
+Lemma typesize_Tptr: typesize Tptr = if Archi.ptr64 then 8 else 4.
+Proof. unfold Tptr; destruct Archi.ptr64; auto. Qed.
+
+(** All values of size 32 bits are also of type [Tany32].  All values
+  are of type [Tany64].  This corresponds to the following subtyping
+  relation over types. *)
 
 Definition subtype (ty1 ty2: typ) : bool :=
   match ty1, ty2 with
   | Tint, Tint => true
   | Tlong, Tlong => true
-  | T128, T128 => true
   | Tfloat, Tfloat => true
   | Tsingle, Tsingle => true
-  | Tsingle, Tfloat => true
+  | (Tint | Tsingle | Tany32), Tany32 => true
+  | (Tint | Tsingle | Tany32 | Tlong | Tfloat | Tany64), Tany64 => true
+  | Tvec t1, Tvec t2 => Archi.vec_typ_eq t1 t2
   | _, _ => false
   end.
 
@@ -90,63 +101,93 @@ Fixpoint subtype_list (tyl1 tyl2: list typ) : bool :=
   | _, _ => false
   end.
 
+(** To describe the values returned by functions, we use the more precise
+    types below. *)
+
+Inductive rettype : Type :=
+  | Tret (t: typ)                       (**r like type [t] *)
+  | Tint8signed                         (**r 8-bit signed integer *)
+  | Tint8unsigned                       (**r 8-bit unsigned integer *)
+  | Tint16signed                        (**r 16-bit signed integer *)
+  | Tint16unsigned                      (**r 16-bit unsigned integer *)
+  | Tvoid.                              (**r no value returned *)
+
+Coercion Tret: typ >-> rettype.
+
+Lemma rettype_eq: forall (t1 t2: rettype), {t1=t2} + {t1<>t2}.
+Proof. generalize typ_eq; decide equality. Defined.
+Global Opaque rettype_eq.
+
+Fixpoint proj_rettype (r: rettype) : typ :=
+  match r with
+  | Tret t => t
+  | Tint8signed | Tint8unsigned | Tint16signed | Tint16unsigned => Tint
+  | Tvoid => Tint
+  end.
+
 (** Additionally, function definitions and function calls are annotated
   by function signatures indicating:
 - the number and types of arguments;
-- the type of the returned value, if any;
+- the type of the returned value;
 - additional information on which calling convention to use.
 
 These signatures are used in particular to determine appropriate
 calling conventions for the function. *)
 
 Record calling_convention : Type := mkcallconv {
-  cc_vararg: bool;
-  cc_structret: bool
+  cc_vararg: bool;                      (**r variable-arity function *)
+  cc_unproto: bool;                     (**r old-style unprototyped function *)
+  cc_structret: bool                    (**r function returning a struct  *)
 }.
 
 Definition cc_default :=
-  {| cc_vararg := false; cc_structret := false |}.
+  {| cc_vararg := false; cc_unproto := false; cc_structret := false |}.
+
+Definition calling_convention_eq (x y: calling_convention) : {x=y} + {x<>y}.
+Proof.
+  decide equality; apply bool_dec.
+Defined.
+Global Opaque calling_convention_eq.
 
 Record signature : Type := mksignature {
   sig_args: list typ;
-  sig_res: option typ;
+  sig_res: rettype;
   sig_cc: calling_convention
 }.
 
-Definition proj_sig_res (s: signature) : typ :=
-  match s.(sig_res) with
-  | None => Tint
-  | Some t => t
-  end.
+Definition proj_sig_res (s: signature) : typ := proj_rettype s.(sig_res).
 
 Definition signature_eq: forall (s1 s2: signature), {s1=s2} + {s1<>s2}.
 Proof.
-  generalize opt_typ_eq, list_typ_eq; intros; decide equality.
-  generalize bool_dec; intros. decide equality. 
+  generalize rettype_eq, list_typ_eq, calling_convention_eq; decide equality.
 Defined.
 Global Opaque signature_eq.
 
 Definition signature_main :=
-  {| sig_args := nil; sig_res := Some Tint; sig_cc := cc_default |}.
+  {| sig_args := nil; sig_res := Tint; sig_cc := cc_default |}.
 
 (** Memory accesses (load and store instructions) are annotated by
   a ``memory chunk'' indicating the type, size and signedness of the
   chunk of memory being accessed. *)
 
 Inductive memory_chunk : Type :=
-  | Mint8signed     (**r 8-bit signed integer *)
-  | Mint8unsigned   (**r 8-bit unsigned integer *)
-  | Mint16signed    (**r 16-bit signed integer *)
-  | Mint16unsigned  (**r 16-bit unsigned integer *)
-  | Mint32          (**r 32-bit integer, or pointer *)
-  | Mint64          (**r 64-bit integer *)
-  | Mint128         (**r 128-bit integer *)
-  | Mfloat32        (**r 32-bit single-precision float *)
-  | Mfloat64.        (**r 64-bit double-precision float *)
+  | Mint8signed     			 (**r 8-bit signed integer *)
+  | Mint8unsigned   			 (**r 8-bit unsigned integer *)
+  | Mint16signed    			 (**r 16-bit signed integer *)
+  | Mint16unsigned  			 (**r 16-bit unsigned integer *)
+  | Mint32          			 (**r 32-bit integer, or pointer *)
+  | Mint64          			 (**r 64-bit integer *)
+  | Mfloat32        			 (**r 32-bit single-precision float *)
+  | Mfloat64        			 (**r 64-bit double-precision float *)
+  | Many32          			 (**r any value that fits in 32 bits *)
+  | Many64: memory_chunk          	 (**r any value *)
+  | Mvec: Archi.vec_typ	-> memory_chunk. (**r SIMD vector *)
 
 Definition chunk_eq: forall (c1 c2: memory_chunk), {c1=c2} + {c1<>c2}.
-Proof. decide equality. Defined.
+Proof. generalize Archi.vec_typ_eq; decide equality. Defined.
 Global Opaque chunk_eq.
+
+Definition Mptr : memory_chunk := if Archi.ptr64 then Mint64 else Mint32.
 
 (** The type (integer/pointer or float) of a chunk. *)
 
@@ -158,23 +199,38 @@ Definition type_of_chunk (c: memory_chunk) : typ :=
   | Mint16unsigned => Tint
   | Mint32 => Tint
   | Mint64 => Tlong
-  | Mint128 => T128
   | Mfloat32 => Tsingle
   | Mfloat64 => Tfloat
+  | Many32 => Tany32
+  | Many64 => Tany64
+  | Mvec ty => Tvec ty
   end.
 
-Definition type_of_chunk_use (c: memory_chunk) : typ :=
+Lemma type_of_Mptr: type_of_chunk Mptr = Tptr.
+Proof. unfold Mptr, Tptr; destruct Archi.ptr64; auto. Qed.
+
+(** Same, as a return type. *)
+
+Definition rettype_of_chunk (c: memory_chunk) : rettype :=
   match c with
-  | Mint8signed => Tint
-  | Mint8unsigned => Tint
-  | Mint16signed => Tint
-  | Mint16unsigned => Tint
+  | Mint8signed => Tint8signed
+  | Mint8unsigned => Tint8unsigned
+  | Mint16signed => Tint16signed
+  | Mint16unsigned => Tint16unsigned
   | Mint32 => Tint
   | Mint64 => Tlong
-  | Mint128 => T128
-  | Mfloat32 => Tfloat
+  | Mfloat32 => Tsingle
   | Mfloat64 => Tfloat
+  | Many32 => Tany32
+  | Many64 => Tany64
+  | Mvec ty => Tvec ty
   end.
+
+Lemma proj_rettype_of_chunk:
+  forall chunk, proj_rettype (rettype_of_chunk chunk) = type_of_chunk chunk.
+Proof.
+  destruct chunk; auto.
+Qed.
 
 (** The chunk that is appropriate to store and reload a value of
   the given type, without losing information. *)
@@ -184,9 +240,14 @@ Definition chunk_of_type (ty: typ) :=
   | Tint => Mint32
   | Tfloat => Mfloat64
   | Tlong => Mint64
-  | T128 => Mint128
   | Tsingle => Mfloat32
+  | Tany32 => Many32
+  | Tany64 => Many64
+  | Tvec ty => Mvec ty
   end.
+
+Lemma chunk_of_Tptr: chunk_of_type Tptr = Mptr.
+Proof. unfold Mptr, Tptr; destruct Archi.ptr64; auto. Qed.
 
 (** Initialization data for global variables. *)
 
@@ -195,10 +256,40 @@ Inductive init_data: Type :=
   | Init_int16: int -> init_data
   | Init_int32: int -> init_data
   | Init_int64: int64 -> init_data
-  | Init_float32: float -> init_data
+  | Init_float32: float32 -> init_data
   | Init_float64: float -> init_data
   | Init_space: Z -> init_data
-  | Init_addrof: ident -> int -> init_data.  (**r address of symbol + offset *)
+  | Init_addrof: ident -> ptrofs -> init_data.  (**r address of symbol + offset *)
+
+Definition init_data_size (i: init_data) : Z :=
+  match i with
+  | Init_int8 _ => 1
+  | Init_int16 _ => 2
+  | Init_int32 _ => 4
+  | Init_int64 _ => 8
+  | Init_float32 _ => 4
+  | Init_float64 _ => 8
+  | Init_addrof _ _ => if Archi.ptr64 then 8 else 4
+  | Init_space n => Z.max n 0
+  end.
+
+Fixpoint init_data_list_size (il: list init_data) {struct il} : Z :=
+  match il with
+  | nil => 0
+  | i :: il' => init_data_size i + init_data_list_size il'
+  end.
+
+Lemma init_data_size_pos:
+  forall i, init_data_size i >= 0.
+Proof.
+  destruct i; simpl; try xomega. destruct Archi.ptr64; omega.
+Qed.
+
+Lemma init_data_list_size_pos:
+  forall il, init_data_list_size il >= 0.
+Proof.
+  induction il; simpl. omega. generalize (init_data_size_pos a); omega.
+Qed.
 
 (** Information attached to global variables. *)
 
@@ -211,6 +302,8 @@ Record globvar (V: Type) : Type := mkglobvar {
 
 (** Whole programs consist of:
 - a collection of global definitions (name and description);
+- a set of public names (the names that are visible outside
+  this compilation unit);
 - the name of the ``main'' function that serves as entry point in the program.
 
 A global definition is either a global function or a global variable.
@@ -223,16 +316,60 @@ Inductive globdef (F V: Type) : Type :=
   | Gfun (f: F)
   | Gvar (v: globvar V).
 
-Implicit Arguments Gfun [F V].
-Implicit Arguments Gvar [F V].
+Arguments Gfun [F V].
+Arguments Gvar [F V].
 
 Record program (F V: Type) : Type := mkprogram {
   prog_defs: list (ident * globdef F V);
+  prog_public: list ident;
   prog_main: ident
 }.
 
 Definition prog_defs_names (F V: Type) (p: program F V) : list ident :=
   List.map fst p.(prog_defs).
+
+(** The "definition map" of a program maps names of globals to their definitions.
+  If several definitions have the same name, the one appearing last in [p.(prog_defs)] wins. *)
+
+Definition prog_defmap (F V: Type) (p: program F V) : PTree.t (globdef F V) :=
+  PTree_Properties.of_list p.(prog_defs).
+
+Section DEFMAP.
+
+Variables F V: Type.
+Variable p: program F V.
+
+Lemma in_prog_defmap:
+  forall id g, (prog_defmap p)!id = Some g -> In (id, g) (prog_defs p).
+Proof.
+  apply PTree_Properties.in_of_list.
+Qed.
+
+Lemma prog_defmap_dom:
+  forall id, In id (prog_defs_names p) -> exists g, (prog_defmap p)!id = Some g.
+Proof.
+  apply PTree_Properties.of_list_dom.
+Qed.
+
+Lemma prog_defmap_unique:
+  forall defs1 id g defs2,
+  prog_defs p = defs1 ++ (id, g) :: defs2 ->
+  ~In id (map fst defs2) ->
+  (prog_defmap p)!id = Some g.
+Proof.
+  unfold prog_defmap; intros. rewrite H. apply PTree_Properties.of_list_unique; auto.
+Qed.
+
+Lemma prog_defmap_norepet:
+  forall id g,
+  list_norepet (prog_defs_names p) ->
+  In (id, g) (prog_defs p) ->
+  (prog_defmap p)!id = Some g.
+Proof.
+  apply PTree_Properties.of_list_norepet.
+Qed.
+
+End DEFMAP.
 
 (** * Generic transformations over programs *)
 
@@ -254,156 +391,53 @@ Definition transform_program_globdef (idg: ident * globdef A V) : ident * globde
 Definition transform_program (p: program A V) : program B V :=
   mkprogram
     (List.map transform_program_globdef p.(prog_defs))
+    p.(prog_public)
     p.(prog_main).
-
-Lemma transform_program_function:
-  forall p i tf,
-  In (i, Gfun tf) (transform_program p).(prog_defs) ->
-  exists f, In (i, Gfun f) p.(prog_defs) /\ transf f = tf.
-Proof.
-  simpl. unfold transform_program. intros.
-  exploit list_in_map_inv; eauto. 
-  intros [[i' gd] [EQ IN]]. simpl in EQ. destruct gd; inv EQ. 
-  exists f; auto.
-Qed.
 
 End TRANSF_PROGRAM.
 
-(** The following is a more general presentation of [transform_program] where 
-  global variable information can be transformed, in addition to function
-  definitions.  Moreover, the transformation functions can fail and
-  return an error message. *)
+(** The following is a more general presentation of [transform_program]:
+- Global variable information can be transformed, in addition to function
+  definitions.
+- The transformation functions can fail and return an error message.
+- The transformation for function definitions receives a global context
+  (derived from the compilation unit being transformed) as additiona
+  argument.
+- The transformation functions receive the name of the global as
+  additional argument. *)
 
-Open Local Scope error_monad_scope.
-Open Local Scope string_scope.
+Local Open Scope error_monad_scope.
 
 Section TRANSF_PROGRAM_GEN.
 
 Variables A B V W: Type.
-Variable transf_fun: A -> res B.
-Variable transf_var: V -> res W.
+Variable transf_fun: ident -> A -> res B.
+Variable transf_var: ident -> V -> res W.
 
-Definition transf_globvar (g: globvar V) : res (globvar W) :=
-  do info' <- transf_var g.(gvar_info);
+Definition transf_globvar (i: ident) (g: globvar V) : res (globvar W) :=
+  do info' <- transf_var i g.(gvar_info);
   OK (mkglobvar info' g.(gvar_init) g.(gvar_readonly) g.(gvar_volatile)).
 
 Fixpoint transf_globdefs (l: list (ident * globdef A V)) : res (list (ident * globdef B W)) :=
   match l with
   | nil => OK nil
   | (id, Gfun f) :: l' =>
-      match transf_fun f with
+    match transf_fun id f with
       | Error msg => Error (MSG "In function " :: CTX id :: MSG ": " :: msg)
       | OK tf =>
-          do tl' <- transf_globdefs l'; OK ((id, Gfun tf) :: tl')
-      end
+        do tl' <- transf_globdefs l'; OK ((id, Gfun tf) :: tl')
+    end
   | (id, Gvar v) :: l' =>
-      match transf_globvar v with
+    match transf_globvar id v with
       | Error msg => Error (MSG "In variable " :: CTX id :: MSG ": " :: msg)
       | OK tv =>
-          do tl' <- transf_globdefs l'; OK ((id, Gvar tv) :: tl')
-      end
+        do tl' <- transf_globdefs l'; OK ((id, Gvar tv) :: tl')
+    end
   end.
 
 Definition transform_partial_program2 (p: program A V) : res (program B W) :=
-  do gl' <- transf_globdefs p.(prog_defs); OK(mkprogram gl' p.(prog_main)).
-
-Lemma transform_partial_program2_function:
-  forall p tp i tf,
-  transform_partial_program2 p = OK tp ->
-  In (i, Gfun tf) tp.(prog_defs) ->
-  exists f, In (i, Gfun f) p.(prog_defs) /\ transf_fun f = OK tf.
-Proof.
-  intros. monadInv H. simpl in H0. 
-  revert x EQ H0. induction (prog_defs p); simpl; intros.
-  inv EQ. contradiction.
-  destruct a as [id [f|v]].
-  destruct (transf_fun f) as [tf1|msg] eqn:?; monadInv EQ.
-  simpl in H0; destruct H0. inv H. exists f; auto. 
-  exploit IHl; eauto. intros [f' [P Q]]; exists f'; auto.
-  destruct (transf_globvar v) as [tv1|msg] eqn:?; monadInv EQ.
-  simpl in H0; destruct H0. inv H.
-  exploit IHl; eauto. intros [f' [P Q]]; exists f'; auto.
-Qed.
-
-Lemma transform_partial_program2_variable:
-  forall p tp i tv,
-  transform_partial_program2 p = OK tp ->
-  In (i, Gvar tv) tp.(prog_defs) ->
-  exists v,
-     In (i, Gvar(mkglobvar v tv.(gvar_init) tv.(gvar_readonly) tv.(gvar_volatile))) p.(prog_defs)
-  /\ transf_var v = OK tv.(gvar_info).
-Proof.
-  intros. monadInv H. simpl in H0. 
-  revert x EQ H0. induction (prog_defs p); simpl; intros.
-  inv EQ. contradiction.
-  destruct a as [id [f|v]].
-  destruct (transf_fun f) as [tf1|msg] eqn:?; monadInv EQ.
-  simpl in H0; destruct H0. inv H.
-  exploit IHl; eauto. intros [v' [P Q]]; exists v'; auto.
-  destruct (transf_globvar v) as [tv1|msg] eqn:?; monadInv EQ.
-  simpl in H0; destruct H0. inv H.
-  monadInv Heqr. simpl. exists (gvar_info v). split. left. destruct v; auto. auto.
-  exploit IHl; eauto. intros [v' [P Q]]; exists v'; auto.
-Qed.
-
-Lemma transform_partial_program2_succeeds:
-  forall p tp i g,
-  transform_partial_program2 p = OK tp ->
-  In (i, g) p.(prog_defs) ->
-  match g with
-  | Gfun fd => exists tfd, transf_fun fd = OK tfd
-  | Gvar gv => exists tv, transf_var gv.(gvar_info) = OK tv
-  end.
-Proof.
-  intros. monadInv H. 
-  revert x EQ H0. induction (prog_defs p); simpl; intros.
-  contradiction.
-  destruct a as [id1 g1]. destruct g1.
-  destruct (transf_fun f) eqn:TF; try discriminate. monadInv EQ. 
-  destruct H0. inv H. econstructor; eauto. eapply IHl; eauto.
-  destruct (transf_globvar v) eqn:TV; try discriminate. monadInv EQ.
-  destruct H0. inv H. monadInv TV. econstructor; eauto. eapply IHl; eauto.
-Qed.
-
-Lemma transform_partial_program2_main:
-  forall p tp,
-  transform_partial_program2 p = OK tp ->
-  tp.(prog_main) = p.(prog_main).
-Proof.
-  intros. monadInv H. reflexivity.
-Qed.
-
-(** Additionally, we can also "augment" the program with new global definitions
-  and a different "main" function. *)
-
-Section AUGMENT.
-
-Variable new_globs: list(ident * globdef B W).
-Variable new_main: ident.
-
-Definition transform_partial_augment_program (p: program A V) : res (program B W) :=
   do gl' <- transf_globdefs p.(prog_defs);
-  OK(mkprogram (gl' ++ new_globs) new_main).
-
-Lemma transform_partial_augment_program_main:
-  forall p tp,
-  transform_partial_augment_program p = OK tp ->
-  tp.(prog_main) = new_main.
-Proof.
-  intros. monadInv H. reflexivity.
-Qed.
-
-End AUGMENT.
-
-Remark transform_partial_program2_augment:
-  forall p,
-  transform_partial_program2 p =
-  transform_partial_augment_program nil p.(prog_main) p.
-Proof.
-  unfold transform_partial_program2, transform_partial_augment_program; intros.
-  destruct (transf_globdefs (prog_defs p)); auto.
-  simpl. f_equal. f_equal. rewrite <- app_nil_end. auto.
-Qed.
+  OK (mkprogram gl' p.(prog_public) p.(prog_main)).
 
 End TRANSF_PROGRAM_GEN.
 
@@ -413,114 +447,26 @@ End TRANSF_PROGRAM_GEN.
 Section TRANSF_PARTIAL_PROGRAM.
 
 Variable A B V: Type.
-Variable transf_partial: A -> res B.
+Variable transf_fun: A -> res B.
 
 Definition transform_partial_program (p: program A V) : res (program B V) :=
-  transform_partial_program2 transf_partial (fun v => OK v) p.
-
-Lemma transform_partial_program_main:
-  forall p tp,
-  transform_partial_program p = OK tp ->
-  tp.(prog_main) = p.(prog_main).
-Proof.
-  apply transform_partial_program2_main.
-Qed.
-
-Lemma transform_partial_program_function:
-  forall p tp i tf,
-  transform_partial_program p = OK tp ->
-  In (i, Gfun tf) tp.(prog_defs) ->
-  exists f, In (i, Gfun f) p.(prog_defs) /\ transf_partial f = OK tf.
-Proof.
-  apply transform_partial_program2_function. 
-Qed.
-
-Lemma transform_partial_program_succeeds:
-  forall p tp i fd,
-  transform_partial_program p = OK tp ->
-  In (i, Gfun fd) p.(prog_defs) ->
-  exists tfd, transf_partial fd = OK tfd.
-Proof.
-  unfold transform_partial_program; intros. 
-  exploit transform_partial_program2_succeeds; eauto. 
-Qed.
+  transform_partial_program2 (fun i f => transf_fun f) (fun i v => OK v) p.
 
 End TRANSF_PARTIAL_PROGRAM.
 
 Lemma transform_program_partial_program:
-  forall (A B V: Type) (transf: A -> B) (p: program A V),
-  transform_partial_program (fun f => OK(transf f)) p = OK(transform_program transf p).
+  forall (A B V: Type) (transf_fun: A -> B) (p: program A V),
+  transform_partial_program (fun f => OK (transf_fun f)) p = OK (transform_program transf_fun p).
 Proof.
-  intros.
-  unfold transform_partial_program, transform_partial_program2, transform_program; intros.
-  replace (transf_globdefs (fun f => OK (transf f)) (fun v => OK v) p.(prog_defs))
-     with (OK (map (transform_program_globdef transf) p.(prog_defs))).
-  auto. 
-  induction (prog_defs p); simpl.
-  auto.
-  destruct a as [id [f|v]]; rewrite <- IHl.
-    auto.
-    destruct v; auto.
-Qed.
-
-(** The following is a relational presentation of 
-  [transform_partial_augment_preogram].  Given relations between function
-  definitions and between variable information, it defines a relation
-  between programs stating that the two programs have appropriately related
-  shapes (global names are preserved and possibly augmented, etc) 
-  and that identically-named function definitions
-  and variable information are related. *)
-
-Section MATCH_PROGRAM.
-
-Variable A B V W: Type.
-Variable match_fundef: A -> B -> Prop.
-Variable match_varinfo: V -> W -> Prop.
-
-Inductive match_globdef: ident * globdef A V -> ident * globdef B W -> Prop :=
-  | match_glob_fun: forall id f1 f2,
-      match_fundef f1 f2 ->
-      match_globdef (id, Gfun f1) (id, Gfun f2)
-  | match_glob_var: forall id init ro vo info1 info2,
-      match_varinfo info1 info2 ->
-      match_globdef (id, Gvar (mkglobvar info1 init ro vo)) (id, Gvar (mkglobvar info2 init ro vo)).
-
-Definition match_program (new_globs : list (ident * globdef B W))
-                         (new_main : ident)
-                         (p1: program A V)  (p2: program B W) : Prop :=
-  (exists tglob, list_forall2 match_globdef p1.(prog_defs) tglob /\
-                 p2.(prog_defs) = tglob ++ new_globs) /\
-  p2.(prog_main) = new_main.
-
-End MATCH_PROGRAM.
-
-Lemma transform_partial_augment_program_match:
-  forall (A B V W: Type)
-         (transf_fun: A -> res B)
-         (transf_var: V -> res W)
-         (p: program A V) 
-         (new_globs : list (ident * globdef B W))
-         (new_main : ident)
-         (tp: program B W),
-  transform_partial_augment_program transf_fun transf_var new_globs new_main p = OK tp ->
-  match_program 
-    (fun fd tfd => transf_fun fd = OK tfd)
-    (fun info tinfo => transf_var info = OK tinfo)
-    new_globs new_main
-    p tp.
-Proof.
-  unfold transform_partial_augment_program; intros. monadInv H. 
-  red; simpl. split; auto. exists x; split; auto.
-  revert x EQ. generalize (prog_defs p). induction l; simpl; intros.
-  monadInv EQ. constructor.
-  destruct a as [id [f|v]]. 
-  (* function *)
-  destruct (transf_fun f) as [tf|?] eqn:?; monadInv EQ. 
-  constructor; auto. constructor; auto.
-  (* variable *)
-  unfold transf_globvar in EQ.
-  destruct (transf_var (gvar_info v)) as [tinfo|?] eqn:?; simpl in EQ; monadInv EQ.
-  constructor; auto. destruct v; simpl in *. constructor; auto.
+  intros. unfold transform_partial_program, transform_partial_program2.
+  assert (EQ: forall l,
+              transf_globdefs (fun i f => OK (transf_fun f)) (fun i (v: V) => OK v) l =
+              OK (List.map (transform_program_globdef transf_fun) l)).
+  { induction l as [ | [id g] l]; simpl.
+  - auto.
+  - destruct g; simpl; rewrite IHl; simpl. auto. destruct v; auto.
+  }
+  rewrite EQ; simpl. auto.
 Qed.
 
 (** * External functions *)
@@ -531,34 +477,33 @@ Qed.
   compiler built-in functions.  We define a type for external functions
   and associated operations. *)
 
-(** compcert-simd: the EF_builtin constructor was enriched to fit
-    the needs of the sse-builtins. Specifically, we have added an
-    arguments (imms: list int) that stores a list of immediate
-    arguments, i.e. integer arguments resolved at compile time;
-*)
+(** simd support: for convenience, [EF_builtin] constructor is
+  extended with an argument carrying additional information
+  (e.g. register-allocation constraints, etc.). The type of it is kept
+  abstract (instantiated during extraction). *)
+
+Parameter builtin_data: Type.
+Parameter builtin_data_eq: forall (ef1 ef2: builtin_data), {ef1=ef2} + {ef1<>ef2}.
 
 Inductive external_function : Type :=
-  | EF_external (name: ident) (sg: signature)
+  | EF_external (name: string) (sg: signature)
      (** A system call or library function.  Produces an event
          in the trace. *)
-  | EF_builtin (name: ident) (imms:list int) (sg: signature)
+  | EF_builtin (name: string) (adata: builtin_data) (sg: signature)
      (** A compiler built-in function.  Behaves like an external, but
          can be inlined by the compiler. *)
+  | EF_runtime (name: string) (sg: signature)
+     (** A function from the run-time library.  Behaves like an
+         external, but must not be redefined. *)
   | EF_vload (chunk: memory_chunk)
-     (** A volatile read operation.  If the adress given as first argument
+     (** A volatile read operation.  If the address given as first argument
          points within a volatile global variable, generate an
          event and return the value found in this event.  Otherwise,
          produce no event and behave like a regular memory load. *)
   | EF_vstore (chunk: memory_chunk)
-     (** A volatile store operation.   If the adress given as first argument
+     (** A volatile store operation.   If the address given as first argument
          points within a volatile global variable, generate an event.
          Otherwise, produce no event and behave like a regular memory store. *)
-  | EF_vload_global (chunk: memory_chunk) (id: ident) (ofs: int)
-     (** A volatile load operation from a global variable. 
-         Specialized version of [EF_vload]. *)
-  | EF_vstore_global (chunk: memory_chunk) (id: ident) (ofs: int)
-     (** A volatile store operation in a global variable. 
-         Specialized version of [EF_vstore]. *)
   | EF_malloc
      (** Dynamic memory allocation.  Takes the requested size in bytes
          as argument; returns a pointer to a fresh block of the given size.
@@ -570,49 +515,41 @@ Inductive external_function : Type :=
          Produces no observable event. *)
   | EF_memcpy (sz: Z) (al: Z)
      (** Block copy, of [sz] bytes, between addresses that are [al]-aligned. *)
-  | EF_annot (text: ident) (targs: list annot_arg)
+  | EF_annot (kind: positive) (text: string) (targs: list typ)
      (** A programmer-supplied annotation.  Takes zero, one or several arguments,
          produces an event carrying the text and the values of these arguments,
          and returns no value. *)
-  | EF_annot_val (text: ident) (targ: typ)
+  | EF_annot_val (kind: positive) (text: string) (targ: typ)
      (** Another form of annotation that takes one argument, produces
          an event carrying the text and the value of this argument,
          and returns the value of the argument. *)
-  | EF_inline_asm (text: ident)
+  | EF_inline_asm (text: string) (sg: signature) (clobbers: list string)
      (** Inline [asm] statements.  Semantically, treated like an
          annotation with no parameters ([EF_annot text nil]).  To be
          used with caution, as it can invalidate the semantic
          preservation theorem.  Generated only if [-finline-asm] is
          given. *)
-
-with annot_arg : Type :=
-  | AA_arg (ty: typ)
-  | AA_int (n: int)
-  | AA_float (n: float).
+  | EF_debug (kind: positive) (text: ident) (targs: list typ).
+     (** Transport debugging information from the front-end to the generated
+         assembly.  Takes zero, one or several arguments like [EF_annot].
+         Unlike [EF_annot], produces no observable event. *)
 
 (** The type signature of an external function. *)
-
-Fixpoint annot_args_typ (targs: list annot_arg) : list typ :=
-  match targs with
-  | nil => nil
-  | AA_arg ty :: targs' => ty :: annot_args_typ targs'
-  | _ :: targs' => annot_args_typ targs'
-  end.
 
 Definition ef_sig (ef: external_function): signature :=
   match ef with
   | EF_external name sg => sg
-  | EF_builtin name imms sg => sg
-  | EF_vload chunk => mksignature (Tint :: nil) (Some (type_of_chunk chunk)) cc_default
-  | EF_vstore chunk => mksignature (Tint :: type_of_chunk chunk :: nil) None cc_default
-  | EF_vload_global chunk _ _ => mksignature nil (Some (type_of_chunk chunk)) cc_default
-  | EF_vstore_global chunk _ _ => mksignature (type_of_chunk chunk :: nil) None cc_default
-  | EF_malloc => mksignature (Tint :: nil) (Some Tint) cc_default
-  | EF_free => mksignature (Tint :: nil) None cc_default
-  | EF_memcpy sz al => mksignature (Tint :: Tint :: nil) None cc_default
-  | EF_annot text targs => mksignature (annot_args_typ targs) None cc_default
-  | EF_annot_val text targ => mksignature (targ :: nil) (Some targ) cc_default
-  | EF_inline_asm text => mksignature nil None cc_default
+  | EF_builtin name _ sg => sg
+  | EF_runtime name sg => sg
+  | EF_vload chunk => mksignature (Tptr :: nil) (rettype_of_chunk chunk) cc_default
+  | EF_vstore chunk => mksignature (Tptr :: type_of_chunk chunk :: nil) Tvoid cc_default
+  | EF_malloc => mksignature (Tptr :: nil) Tptr cc_default
+  | EF_free => mksignature (Tptr :: nil) Tvoid cc_default
+  | EF_memcpy sz al => mksignature (Tptr :: Tptr :: nil) Tvoid cc_default
+  | EF_annot kind text targs => mksignature targs Tvoid cc_default
+  | EF_annot_val kind text targ => mksignature (targ :: nil) targ cc_default
+  | EF_inline_asm text sg clob => sg
+  | EF_debug kind text targs => mksignature targs Tvoid cc_default
   end.
 
 (** Whether an external function should be inlined by the compiler. *)
@@ -620,24 +557,25 @@ Definition ef_sig (ef: external_function): signature :=
 Definition ef_inline (ef: external_function) : bool :=
   match ef with
   | EF_external name sg => false
-  | EF_builtin name imms sg => true
+  | EF_builtin name _ sg => true
+  | EF_runtime name sg => false
   | EF_vload chunk => true
   | EF_vstore chunk => true
-  | EF_vload_global chunk id ofs => true
-  | EF_vstore_global chunk id ofs => true
   | EF_malloc => false
   | EF_free => false
   | EF_memcpy sz al => true
-  | EF_annot text targs => true
-  | EF_annot_val text targ => true
-  | EF_inline_asm text => true
+  | EF_annot kind text targs => true
+  | EF_annot_val kind Text rg => true
+  | EF_inline_asm text sg clob => true
+  | EF_debug kind text targs => true
   end.
 
 (** Whether an external function must reload its arguments. *)
 
 Definition ef_reloads (ef: external_function) : bool :=
   match ef with
-  | EF_annot text targs => false
+  | EF_annot kind text targs => false
+  | EF_debug kind text targs => false
   | _ => true
   end.
 
@@ -645,8 +583,8 @@ Definition ef_reloads (ef: external_function) : bool :=
 
 Definition external_function_eq: forall (ef1 ef2: external_function), {ef1=ef2} + {ef1<>ef2}.
 Proof.
-  generalize ident_eq signature_eq chunk_eq typ_eq zeq Int.eq_dec list_eq_dec.  intros; decide equality.
-  apply list_eq_dec. decide equality. apply Float.eq_dec. 
+  generalize ident_eq string_dec signature_eq chunk_eq typ_eq list_eq_dec zeq Int.eq_dec option_eq builtin_data_eq; intros.
+  decide equality.
 Defined.
 Global Opaque external_function_eq.
 
@@ -656,7 +594,7 @@ Inductive fundef (F: Type): Type :=
   | Internal: F -> fundef F
   | External: external_function -> fundef F.
 
-Implicit Arguments External [F].
+Arguments External [F].
 
 Section TRANSF_FUNDEF.
 
@@ -683,3 +621,144 @@ Definition transf_partial_fundef (fd: fundef A): res (fundef B) :=
   end.
 
 End TRANSF_PARTIAL_FUNDEF.
+
+(** * Register pairs *)
+
+Set Contextual Implicit.
+
+(** In some intermediate languages (LTL, Mach), 64-bit integers can be
+  split into two 32-bit halves and held in a pair of registers.
+  Syntactically, this is captured by the type [rpair] below. *)
+
+Inductive rpair (A: Type) : Type :=
+  | One (r: A)
+  | Twolong (rhi rlo: A).
+
+Definition typ_rpair (A: Type) (typ_of: A -> typ) (p: rpair A): typ :=
+  match p with
+  | One r => typ_of r
+  | Twolong rhi rlo => Tlong
+  end.
+
+Definition map_rpair (A B: Type) (f: A -> B) (p: rpair A): rpair B :=
+  match p with
+  | One r => One (f r)
+  | Twolong rhi rlo => Twolong (f rhi) (f rlo)
+  end.
+
+Definition regs_of_rpair (A: Type) (p: rpair A): list A :=
+  match p with
+  | One r => r :: nil
+  | Twolong rhi rlo => rhi :: rlo :: nil
+  end.
+
+Fixpoint regs_of_rpairs (A: Type) (l: list (rpair A)): list A :=
+  match l with
+  | nil => nil
+  | p :: l => regs_of_rpair p ++ regs_of_rpairs l
+  end.
+
+Lemma in_regs_of_rpairs:
+  forall (A: Type) (x: A) p, In x (regs_of_rpair p) -> forall l, In p l -> In x (regs_of_rpairs l).
+Proof.
+  induction l; simpl; intros. auto. apply in_app. destruct H0; auto. subst a. auto.
+Qed.
+
+Lemma in_regs_of_rpairs_inv:
+  forall (A: Type) (x: A) l, In x (regs_of_rpairs l) -> exists p, In p l /\ In x (regs_of_rpair p).
+Proof.
+  induction l; simpl; intros. contradiction.
+  rewrite in_app_iff in H; destruct H.
+  exists a; auto.
+  apply IHl in H. firstorder auto.
+Qed.
+
+Definition forall_rpair (A: Type) (P: A -> Prop) (p: rpair A): Prop :=
+  match p with
+  | One r => P r
+  | Twolong rhi rlo => P rhi /\ P rlo
+  end.
+
+(** * Arguments and results to builtin functions *)
+
+Inductive builtin_arg (A: Type) : Type :=
+  | BA (x: A)
+  | BA_int (n: int)
+  | BA_long (n: int64)
+  | BA_float (f: float)
+  | BA_single (f: float32)
+  | BA_loadstack (chunk: memory_chunk) (ofs: ptrofs)
+  | BA_addrstack (ofs: ptrofs)
+  | BA_loadglobal (chunk: memory_chunk) (id: ident) (ofs: ptrofs)
+  | BA_addrglobal (id: ident) (ofs: ptrofs)
+  | BA_splitlong (hi lo: builtin_arg A)
+  | BA_addptr (a1 a2: builtin_arg A).
+
+Inductive builtin_res (A: Type) : Type :=
+  | BR (x: A)
+  | BR_none
+  | BR_splitlong (hi lo: builtin_res A).
+
+Fixpoint globals_of_builtin_arg (A: Type) (a: builtin_arg A) : list ident :=
+  match a with
+  | BA_loadglobal chunk id ofs => id :: nil
+  | BA_addrglobal id ofs => id :: nil
+  | BA_splitlong hi lo => globals_of_builtin_arg hi ++ globals_of_builtin_arg lo
+  | BA_addptr a1 a2 => globals_of_builtin_arg a1 ++ globals_of_builtin_arg a2
+  | _ => nil
+  end.
+
+Definition globals_of_builtin_args (A: Type) (al: list (builtin_arg A)) : list ident :=
+  List.fold_right (fun a l => globals_of_builtin_arg a ++ l) nil al.
+
+Fixpoint params_of_builtin_arg (A: Type) (a: builtin_arg A) : list A :=
+  match a with
+  | BA x => x :: nil
+  | BA_splitlong hi lo => params_of_builtin_arg hi ++ params_of_builtin_arg lo
+  | BA_addptr a1 a2 => params_of_builtin_arg a1 ++ params_of_builtin_arg a2
+  | _ => nil
+  end.
+
+Definition params_of_builtin_args (A: Type) (al: list (builtin_arg A)) : list A :=
+  List.fold_right (fun a l => params_of_builtin_arg a ++ l) nil al.
+
+Fixpoint params_of_builtin_res (A: Type) (a: builtin_res A) : list A :=
+  match a with
+  | BR x => x :: nil
+  | BR_none => nil
+  | BR_splitlong hi lo => params_of_builtin_res hi ++ params_of_builtin_res lo
+  end.
+
+Fixpoint map_builtin_arg (A B: Type) (f: A -> B) (a: builtin_arg A) : builtin_arg B :=
+  match a with
+  | BA x => BA (f x)
+  | BA_int n => BA_int n
+  | BA_long n => BA_long n
+  | BA_float n => BA_float n
+  | BA_single n => BA_single n
+  | BA_loadstack chunk ofs => BA_loadstack chunk ofs
+  | BA_addrstack ofs => BA_addrstack ofs
+  | BA_loadglobal chunk id ofs => BA_loadglobal chunk id ofs
+  | BA_addrglobal id ofs => BA_addrglobal id ofs
+  | BA_splitlong hi lo =>
+      BA_splitlong (map_builtin_arg f hi) (map_builtin_arg f lo)
+  | BA_addptr a1 a2 =>
+      BA_addptr (map_builtin_arg f a1) (map_builtin_arg f a2)
+  end.
+
+Fixpoint map_builtin_res (A B: Type) (f: A -> B) (a: builtin_res A) : builtin_res B :=
+  match a with
+  | BR x => BR (f x)
+  | BR_none => BR_none
+  | BR_splitlong hi lo =>
+      BR_splitlong (map_builtin_res f hi) (map_builtin_res f lo)
+  end.
+
+(** Which kinds of builtin arguments are supported by which external function. *)
+
+Inductive builtin_arg_constraint : Type :=
+  | OK_default
+  | OK_const
+  | OK_addrstack
+  | OK_addressing
+  | OK_all.

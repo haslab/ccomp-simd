@@ -15,37 +15,29 @@
 
 include Makefile.config
 
-DIRS=lib common $(ARCH)/$(VARIANT) $(ARCH) backend cfrontend driver \
-  flocq/Core flocq/Prop flocq/Calc flocq/Appli exportclight taintanalysis
+ifeq ($(wildcard $(ARCH)_$(BITSIZE)),)
+ARCHDIRS=$(ARCH)
+else
+ARCHDIRS=$(ARCH)_$(BITSIZE) $(ARCH)
+endif
 
-RECDIRS=lib common backend cfrontend driver flocq exportclight taintanalysis
+DIRS=lib common $(ARCHDIRS) backend cfrontend driver \
+  flocq/Core flocq/Prop flocq/Calc flocq/IEEE754 \
+  exportclight MenhirLib cparser
 
-COQINCLUDES=$(foreach d, $(RECDIRS), -R $(d) -as compcert.$(d)) \
-  -I $(ARCH)/$(VARIANT) -as compcert.$(ARCH).$(VARIANT) \
-  -I $(ARCH) -as compcert.$(ARCH)
+RECDIRS=lib common $(ARCHDIRS) backend cfrontend driver flocq exportclight \
+  MenhirLib cparser
 
-CAMLINCLUDES=$(patsubst %,-I %, $(DIRS)) -I extraction -I cparser
+COQINCLUDES=$(foreach d, $(RECDIRS), -R $(d) compcert.$(d))
 
-COQC=coqc -q $(COQINCLUDES)
-COQDEP=coqdep $(COQINCLUDES)
-COQDOC=coqdoc
-COQEXEC=coqtop $(COQINCLUDES) -batch -load-vernac-source
-COQCHK=coqchk $(COQINCLUDES)
-
-OCAMLBUILD=ocamlbuild
-OCB_OPTIONS=\
-  -j 2 \
-  -no-hygiene \
-  -no-links \
-  -ocamlopt "ocamlopt " \
-  $(CAMLINCLUDES)
-OCB_OPTIONS_CHECKLINK=\
-  $(OCB_OPTIONS) \
-  -I checklink \
-  -use-ocamlfind
-OCB_OPTIONS_CLIGHTGEN=\
-  $(OCB_OPTIONS) \
-  -I exportclight
+COQCOPTS ?= -w -undeclared-scope
+COQC="$(COQBIN)coqc" -q $(COQINCLUDES) $(COQCOPTS)
+COQDEP="$(COQBIN)coqdep" $(COQINCLUDES)
+COQDOC="$(COQBIN)coqdoc"
+COQEXEC="$(COQBIN)coqtop" $(COQINCLUDES) -batch -load-vernac-source
+COQCHK="$(COQBIN)coqchk" $(COQINCLUDES)
+MENHIR=menhir
+CP=cp
 
 VPATH=$(DIRS)
 GPATH=$(DIRS)
@@ -53,33 +45,34 @@ GPATH=$(DIRS)
 # Flocq
 
 FLOCQ=\
-  Fcore_Raux.v Fcore_Zaux.v Fcore_defs.v Fcore_digits.v                     \
-  Fcore_float_prop.v Fcore_FIX.v Fcore_FLT.v Fcore_FLX.v                    \
-  Fcore_FTZ.v Fcore_generic_fmt.v Fcore_rnd.v Fcore_rnd_ne.v                \
-  Fcore_ulp.v Fcore.v                                                       \
-  Fcalc_bracket.v Fcalc_digits.v Fcalc_div.v Fcalc_ops.v                    \
-  Fcalc_round.v Fcalc_sqrt.v                                                \
-  Fprop_div_sqrt_error.v Fprop_mult_error.v Fprop_plus_error.v              \
-  Fprop_relative.v Fprop_Sterbenz.v                                         \
-  Fappli_rnd_odd.v Fappli_IEEE.v Fappli_IEEE_bits.v
+  Raux.v Zaux.v Defs.v Digits.v Float_prop.v FIX.v FLT.v FLX.v FTZ.v \
+  Generic_fmt.v Round_pred.v Round_NE.v Ulp.v Core.v \
+  Bracket.v Div.v Operations.v Round.v Sqrt.v \
+  Div_sqrt_error.v Mult_error.v Plus_error.v \
+  Relative.v Sterbenz.v Round_odd.v Double_rounding.v \
+  Binary.v Bits.v
 
 # General-purpose libraries (in lib/)
 
-LIB=Axioms.v Coqlib.v Intv.v Maps.v Heaps.v Lattice.v Ordered.v \
-  Iteration.v Integers.v Archi.v Floats.v Parmov.v UnionFind.v Wfsimpl.v \
-  Postorder.v FSetAVLplus.v IntvSets.v
+VLIB=Axioms.v Coqlib.v Intv.v Maps.v Heaps.v Lattice.v Ordered.v \
+  Iteration.v Zbits.v Integers.v Archi.v ArchiVec.v IEEE754_extra.v Floats.v \
+  Parmov.v UnionFind.v Wfsimpl.v \
+  Postorder.v FSetAVLplus.v IntvSets.v Decidableplus.v BoolEqual.v
 
 # Parts common to the front-ends and the back-end (in common/)
 
-COMMON=Errors.v AST.v Events.v Globalenvs.v Memdata.v Memtype.v Memory.v \
-  Values.v Smallstep.v Behaviors.v Switch.v Determinism.v Subtyping.v
+COMMON=Errors.v AST.v Linking.v \
+  Events.v Globalenvs.v Memdata.v Memtype.v Memory.v \
+  Values.v Smallstep.v Behaviors.v Switch.v Determinism.v Unityping.v \
+  Separation.v Builtins0.v Builtins1.v Builtins.v
 
-# Back-end modules (in backend/, $(ARCH)/, $(ARCH)/$(VARIANT))
+# Back-end modules (in backend/, $(ARCH)/)
 
 BACKEND=\
-  Cminor.v Op.v CminorSel.v \
-  SelectOp.v SelectDiv.v SelectLong.v Selection.v \
-  SelectOpproof.v SelectDivproof.v SelectLongproof.v Selectionproof.v \
+  Cminor.v Cminortyping.v Op.v CminorSel.v \
+  SelectOp.v SelectDiv.v SplitLong.v SelectLong.v Selection.v \
+  SelectOpproof.v SelectDivproof.v SplitLongproof.v \
+  SelectLongproof.v Selectionproof.v \
   Registers.v RTL.v \
   RTLgen.v RTLgenspec.v RTLgenproof.v \
   Tailcall.v Tailcallproof.v \
@@ -91,32 +84,36 @@ BACKEND=\
   ConstpropOp.v Constprop.v ConstpropOpproof.v Constpropproof.v \
   CSEdomain.v CombineOp.v CSE.v CombineOpproof.v CSEproof.v \
   NeedDomain.v NeedOp.v Deadcode.v Deadcodeproof.v \
+  Unusedglob.v Unusedglobproof.v \
   Machregs.v Locations.v Conventions1.v Conventions.v LTL.v \
   Allocation.v Allocproof.v \
   Tunneling.v Tunnelingproof.v \
   Linear.v Lineartyping.v \
   Linearize.v Linearizeproof.v \
   CleanupLabels.v CleanupLabelsproof.v \
+  Debugvar.v Debugvarproof.v \
   Mach.v \
   Bounds.v Stacklayout.v Stacking.v Stackingproof.v \
-  Asm.v Asmgen.v Asmgenproof0.v Asmgenproof1.v Asmgenproof.v \
-  OpX.v
-
-TAINT=\
-	Extra.v PrintPos.v ToString.v Util.v AssocList.v \
-	MoreMachregs.v Expr.v AdomLib.v ABlock.v TypeDomain.v AbstractMemory.v \
-	MapLattice.v NumDom.v Box.v MemDom.v LoopUnrolling.v \
-	aritmo.v StridedIntervals.v SIND.v \
-	ClassifyBuiltIns.v MachIR.v AbCell.v MachIRTaintAnalysis.v
+  Asm.v Asmgen.v Asmgenproof0.v Asmgenproof1.v Asmgenproof.v
 
 # C front-end modules (in cfrontend/)
 
-CFRONTEND=Ctypes.v Cop.v Csyntax.v Csem.v Cstrategy.v Cexec.v \
+CFRONTEND=Ctypes.v Cop.v Csyntax.v Csem.v Ctyping.v Cstrategy.v Cexec.v \
   Initializers.v Initializersproof.v \
   SimplExpr.v SimplExprspec.v SimplExprproof.v \
   Clight.v ClightBigstep.v SimplLocals.v SimplLocalsproof.v \
   Cshmgen.v Cshmgenproof.v \
   Csharpminor.v Cminorgen.v Cminorgenproof.v
+
+# Parser
+
+PARSER=Cabs.v Parser.v
+
+# MenhirLib
+
+MENHIRLIB=Alphabet.v Automaton.v Grammar.v Interpreter_complete.v \
+  Interpreter_correct.v Interpreter.v Main.v Validator_complete.v \
+  Validator_safe.v Validator_classes.v
 
 # Putting everything together (in driver/)
 
@@ -124,28 +121,32 @@ DRIVER=Compopts.v Compiler.v Complements.v
 
 # All source files
 
-FILES=$(LIB) $(COMMON) $(BACKEND) $(CFRONTEND) $(DRIVER) $(FLOCQ) $(TAINT)
+FILES=$(VLIB) $(COMMON) $(BACKEND) $(CFRONTEND) $(DRIVER) $(FLOCQ) \
+  $(MENHIRLIB) $(PARSER)
 
-# Symbolic links vs. copy
+# Generated source files
 
-ifneq (,$(findstring CYGWIN,$(shell uname -s)))
-SLN=cp
-else
-SLN=ln -s
-endif
+GENERATED=\
+  $(ARCH)/ConstpropOp.v $(ARCH)/SelectOp.v $(ARCH)/SelectLong.v \
+  backend/SelectDiv.v backend/SplitLong.v \
+  cparser/Parser.v
 
 all:
+	@test -f .depend || $(MAKE) depend
 	$(MAKE) proof
 	$(MAKE) extraction
 	$(MAKE) ccomp
 ifeq ($(HAS_RUNTIME_LIB),true)
 	$(MAKE) runtime
 endif
-ifeq ($(CCHECKLINK),true)
-	$(MAKE) cchecklink
+ifeq ($(CLIGHTGEN),true)
+	$(MAKE) clightgen
 endif
 
 proof: $(FILES:.v=.vo)
+
+# Turn off some warnings for compiling Flocq
+flocq/%.vo: COQCOPTS+=-w -compatibility-notation
 
 extraction: extraction/STAMP
 
@@ -154,60 +155,42 @@ extraction/STAMP: $(FILES:.v=.vo) extraction/extraction.v $(ARCH)/extractionMach
 	$(COQEXEC) extraction/extraction.v
 	touch extraction/STAMP
 
-ccomp: extraction/STAMP driver/Configuration.ml
-	$(OCAMLBUILD) $(OCB_OPTIONS) Driver.native \
-        && rm -f ccomp && $(SLN) _build/driver/Driver.native ccomp
+.depend.extr: extraction/STAMP tools/modorder driver/Version.ml
+	$(MAKE) -f Makefile.extr depend
 
-ccomp.prof: extraction/STAMP driver/Configuration.ml
-	$(OCAMLBUILD) $(OCB_OPTIONS) Driver.p.native \
-        && rm -f ccomp.prof && $(SLN) _build/driver/Driver.p.native ccomp.prof
+ccomp: .depend.extr compcert.ini driver/Version.ml FORCE
+	$(MAKE) -f Makefile.extr ccomp
+ccomp.byte: .depend.extr compcert.ini driver/Version.ml FORCE
+	$(MAKE) -f Makefile.extr ccomp.byte
 
-ccomp.byte: extraction/STAMP driver/Configuration.ml
-	$(OCAMLBUILD) $(OCB_OPTIONS) Driver.d.byte \
-        && rm -f ccomp.byte && $(SLN) _build/driver/Driver.d.byte ccomp.byte
+clightgen: .depend.extr compcert.ini exportclight/Clightdefs.vo driver/Version.ml FORCE
+	$(MAKE) -f Makefile.extr clightgen
+clightgen.byte: .depend.extr compcert.ini exportclight/Clightdefs.vo driver/Version.ml FORCE
+	$(MAKE) -f Makefile.extr clightgen.byte
 
 runtime:
 	$(MAKE) -C runtime
 
-cchecklink: driver/Configuration.ml
-	$(OCAMLBUILD) $(OCB_OPTIONS_CHECKLINK) Validator.native \
-        && rm -f cchecklink && $(SLN) _build/checklink/Validator.native cchecklink
+FORCE:
 
-cchecklink.byte: driver/Configuration.ml
-	$(OCAMLBUILD) $(OCB_OPTIONS_CHECKLINK) Validator.d.byte \
-        && rm -f cchecklink.byte && $(SLN) _build/checklink/Validator.d.byte cchecklink.byte
+.PHONY: proof extraction runtime FORCE
 
-clightgen: extraction/STAMP driver/Configuration.ml exportclight/Clightdefs.vo
-	$(OCAMLBUILD) $(OCB_OPTIONS_CLIGHTGEN) Clightgen.native \
-        && rm -f clightgen && $(SLN) _build/exportclight/Clightgen.native clightgen
-
-clightgen.byte: extraction/STAMP driver/Configuration.ml exportclight/Clightdefs.vo
-	$(OCAMLBUILD) $(OCB_OPTIONS_CLIGHTGEN) Clightgen.d.byte \
-        && rm -f clightgen.byte && $(SLN) _build/exportclight/Clightgen.d.byte clightgen.byte
-
-.PHONY: proof extraction ccomp ccomp.prof ccomp.byte runtime cchecklink cchecklink.byte clightgen clightgen.byte
-
-documentation: doc/coq2html $(FILES)
+documentation: $(FILES)
 	mkdir -p doc/html
 	rm -f doc/html/*.html
-	doc/coq2html -o 'doc/html/%.html' doc/*.glob \
-          $(filter-out doc/coq2html, $^)
-	cp doc/coq2html.css doc/coq2html.js doc/html/
-
-doc/coq2html: doc/coq2html.ml
-	ocamlopt -o doc/coq2html str.cmxa doc/coq2html.ml
-
-doc/coq2html.ml: doc/coq2html.mll
-	ocamllex doc/coq2html.mll
+	coq2html -d doc/html/ -base compcert -short-names doc/*.glob \
+          $(filter-out doc/coq2html cparser/Parser.v, $^)
 
 tools/ndfun: tools/ndfun.ml
 	ocamlopt -o tools/ndfun str.cmxa tools/ndfun.ml
+tools/modorder: tools/modorder.ml
+	ocamlopt -o tools/modorder str.cmxa tools/modorder.ml
 
 latexdoc:
 	cd doc; $(COQDOC) --latex -o doc/doc.tex -g $(FILES)
 
 %.vo: %.v
-	@rm -f doc/glob/$(*F).glob
+	@rm -f doc/$(*F).glob
 	@echo "COQC $*.v"
 	@$(COQC) -dump-glob doc/$(*F).glob $*.v
 
@@ -215,47 +198,76 @@ latexdoc:
 	@rm -f $*.v
 	@echo "Preprocessing $*.vp"
 	@tools/ndfun $*.vp > $*.v || { rm -f $*.v; exit 2; }
-	@chmod -w $*.v
+	@chmod a-w $*.v
 
-driver/Configuration.ml: Makefile.config VERSION
-	(echo let stdlib_path = "\"$(LIBDIR)\""; \
-         echo let prepro = "\"$(CPREPRO)\""; \
-         echo let asm = "\"$(CASM)\""; \
-         echo let linker = "\"$(CLINKER)\""; \
-         echo let arch = "\"$(ARCH)\""; \
-         echo let variant = "\"$(VARIANT)\""; \
-         echo let system = "\"$(SYSTEM)\""; \
-         echo let has_runtime_lib = $(HAS_RUNTIME_LIB); \
-         echo let asm_supports_cfi = $(ASM_SUPPORTS_CFI); \
-         version=`cat VERSION`; \
-         echo let version = "\"$$version\"") \
-        > driver/Configuration.ml
+compcert.ini: Makefile.config
+	(echo "stdlib_path=$(LIBDIR)"; \
+         echo "prepro=$(CPREPRO)"; \
+         echo "linker=$(CLINKER)"; \
+         echo "asm=$(CASM)"; \
+	 echo "prepro_options=$(CPREPRO_OPTIONS)";\
+	 echo "asm_options=$(CASM_OPTIONS)";\
+	 echo "linker_options=$(CLINKER_OPTIONS)";\
+         echo "arch=$(ARCH)"; \
+         echo "model=$(MODEL)"; \
+         echo "abi=$(ABI)"; \
+         echo "endianness=$(ENDIANNESS)"; \
+         echo "system=$(SYSTEM)"; \
+         echo "has_runtime_lib=$(HAS_RUNTIME_LIB)"; \
+         echo "has_standard_headers=$(HAS_STANDARD_HEADERS)"; \
+         echo "asm_supports_cfi=$(ASM_SUPPORTS_CFI)"; \
+	 echo "response_file_style=$(RESPONSEFILE)";) \
+        > compcert.ini
 
-depend: $(FILES) exportclight/Clightdefs.v
-	$(COQDEP) $^ \
-        | sed -e 's|$(ARCH)/$(VARIANT)/|$$(ARCH)/$$(VARIANT)/|g' \
-              -e 's|$(ARCH)/|$$(ARCH)/|g' \
-        > .depend
+driver/Version.ml: VERSION
+	cat VERSION \
+	| sed -e 's|\(.*\)=\(.*\)|let \1 = \"\2\"|g' \
+	>driver/Version.ml
+
+cparser/Parser.v: cparser/Parser.vy
+	@rm -f $@
+	$(MENHIR) --coq --coq-lib-path compcert.MenhirLib --coq-no-version-check cparser/Parser.vy
+	@chmod a-w $@
+
+depend: $(GENERATED) depend1
+
+depend1: $(FILES) exportclight/Clightdefs.v
+	@echo "Analyzing Coq dependencies"
+	@$(COQDEP) $^ > .depend
 
 install:
-	install -d $(BINDIR)
-	install ./ccomp $(BINDIR)
-ifeq ($(CCHECKLINK),true)
-	install ./cchecklink $(BINDIR)
-endif
-ifeq ($(HAS_RUNTIME_LIB),true)
+	install -d $(DESTDIR)$(BINDIR)
+	install -m 0755 ./ccomp $(DESTDIR)$(BINDIR)
+	install -d $(DESTDIR)$(SHAREDIR)
+	install -m 0644 ./compcert.ini $(DESTDIR)$(SHAREDIR)
+	install -d $(DESTDIR)$(MANDIR)/man1
+	install -m 0644 ./doc/ccomp.1 $(DESTDIR)$(MANDIR)/man1
 	$(MAKE) -C runtime install
+ifeq ($(CLIGHTGEN),true)
+	install -m 0755 ./clightgen $(DESTDIR)$(BINDIR)
+endif
+ifeq ($(INSTALL_COQDEV),true)
+	install -d $(DESTDIR)$(COQDEVDIR)
+	for d in $(DIRS); do \
+          install -d $(DESTDIR)$(COQDEVDIR)/$$d && \
+          install -m 0644 $$d/*.vo $(DESTDIR)$(COQDEVDIR)/$$d/; \
+	done
+	install -m 0644 ./VERSION $(DESTDIR)$(COQDEVDIR)
+	@(echo "To use, pass the following to coq_makefile or add the following to _CoqProject:"; echo "-R $(COQDEVDIR) compcert") > $(DESTDIR)$(COQDEVDIR)/README
 endif
 
+
 clean:
-	rm -f $(patsubst %, %/*.vo, $(DIRS))
-	rm -f ccomp ccomp.byte cchecklink cchecklink.byte clightgen clightgen.byte
-	rm -rf _build
+	rm -f $(patsubst %, %/*.vo*, $(DIRS))
+	rm -f $(patsubst %, %/.*.aux, $(DIRS))
 	rm -rf doc/html doc/*.glob
-	rm -f doc/coq2html.ml doc/coq2html
-	rm -f driver/Configuration.ml
-	rm -f extraction/STAMP extraction/*.ml extraction/*.mli
-	rm -f tools/ndfun
+	rm -f driver/Version.ml
+	rm -f compcert.ini
+	rm -f extraction/STAMP extraction/*.ml extraction/*.mli .depend.extr
+	rm -f tools/ndfun tools/modorder tools/*.cm? tools/*.o
+	rm -f $(GENERATED) .depend
+	rm -f .lia.cache
+	$(MAKE) -f Makefile.extr clean
 	$(MAKE) -C runtime clean
 	$(MAKE) -C test clean
 
@@ -266,20 +278,12 @@ distclean:
 check-admitted: $(FILES)
 	@grep -w 'admit\|Admitted\|ADMITTED' $^ || echo "Nothing admitted."
 
-# Problems with coqchk (coq 8.4.pl2):
-# Integers.Int.Z_mod_modulus_range takes forever to check
-# Floats.Float.double_of_bits_of_double takes forever to check
-# AST.external_function gives "Failure: impredicative Type inductive type"
-# Asm.instruction gives "Failure: impredicative Type inductive type"
-# Mach.instruction gives "Failure: impredicative Type inductive type"
-# UnionFind.UF.elt gives "Anomaly: Uncaught exception Reduction.NotConvertible"
-
 check-proof: $(FILES)
-	$(COQCHK) -admit Integers -admit Floats -admit AST -admit Asm -admit Mach -admit UnionFind Complements 
+	$(COQCHK) compcert.driver.Complements
 
 print-includes:
 	@echo $(COQINCLUDES)
 
-include .depend
+-include .depend
 
 FORCE:
