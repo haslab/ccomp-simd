@@ -204,6 +204,18 @@ Definition encode_int (sz: nat) (x: Z) : list byte :=
 Definition decode_int (b: list byte) : Z :=
   int_of_bytes (rev_if_be b).
 
+Lemma int_of_bytes_append:
+  forall l2 l1,
+  int_of_bytes (l1 ++ l2) = int_of_bytes l1 + int_of_bytes l2 * two_p (Z.of_nat (length l1) * 8).
+Proof.
+  induction l1; simpl int_of_bytes; intros.
+  simpl. ring.
+  simpl length. rewrite Nat2Z.inj_succ.
+  replace (Z.succ (Z.of_nat (length l1)) * 8) with (Z.of_nat (length l1) * 8 + 8) by omega.
+  rewrite two_p_is_exp. change (two_p 8) with 256. rewrite IHl1. ring.
+  omega. omega.
+Qed.
+
 (** Length properties *)
 
 Lemma length_bytes_of_int:
@@ -250,6 +262,16 @@ Proof.
   intros; unfold rev_if_be; destruct Archi.big_endian.
   apply List.rev_involutive.
   auto.
+Qed.
+
+Lemma decode_int_zero n:
+ decode_int (list_repeat n Byte.zero) = 0.
+Proof.
+induction n; auto.
+revert IHn; unfold decode_int, rev_if_be;
+destruct Archi.big_endian; simpl; intros;
+rewrite ?int_of_bytes_append; simpl;
+rewrite IHn; rewrite Byte.unsigned_zero; reflexivity.
 Qed.
 
 Lemma decode_encode_int:
@@ -360,6 +382,10 @@ Fixpoint proj_bytes (vl: list memval) : option (list byte) :=
       match proj_bytes vl' with None => None | Some bl => Some(b :: bl) end
   | _ => None
   end.
+
+Remark proj_bytes_zero n:
+  proj_bytes (list_repeat n (Byte Byte.zero)) = Some (list_repeat n Byte.zero).
+Proof. induction n; auto; simpl; rewrite IHn; reflexivity. Qed.
 
 Remark length_inj_bytes:
   forall bl, length (inj_bytes bl) = length bl.
@@ -1049,18 +1075,6 @@ Proof.
 Qed.
 
 (** * Breaking 64-bit memory accesses into two 32-bit accesses *)
-
-Lemma int_of_bytes_append:
-  forall l2 l1,
-  int_of_bytes (l1 ++ l2) = int_of_bytes l1 + int_of_bytes l2 * two_p (Z.of_nat (length l1) * 8).
-Proof.
-  induction l1; simpl int_of_bytes; intros.
-  simpl. ring.
-  simpl length. rewrite Nat2Z.inj_succ.
-  replace (Z.succ (Z.of_nat (length l1)) * 8) with (Z.of_nat (length l1) * 8 + 8) by omega.
-  rewrite two_p_is_exp. change (two_p 8) with 256. rewrite IHl1. ring.
-  omega. omega.
-Qed.
 
 Lemma int_of_bytes_range:
   forall l, 0 <= int_of_bytes l < two_p (Z.of_nat (length l) * 8).
