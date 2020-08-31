@@ -31,19 +31,37 @@ destruct ty; unfold vec_typ_sem; intros.
 - apply Int256.eq_dec.
 Qed.
 
-(*
-Definition vec_typ_align (t:vec_typ) : Z := 4 * two_power_nat (vec_typ_rnk t).
+Definition vec_align (t:vec_typ) : Z := typesize (Tvec t).
 
-Lemma vec_align_chunk_pos: forall t, vec_typ_align t > 0.
-Proof. destruct t; unfold vec_typ_align; omega. Qed.
+Lemma vec_align_pos: forall t, vec_align t > 0.
+Proof. intro t; exact (typesize_pos (Tvec t)). Qed.
 
-Lemma vec_align_le_divides: forall t, 
-  (vec_align_chunk t | 4 * vec_typesize t).
+Lemma vec_align_divides_typesize: forall t, 
+  (vec_align t | typesize (Tvec t)).
 Proof.
-destruct t; unfold vec_align_chunk, vec_typesize; simpl.
-exists 2; omega.
+intro t; unfold vec_align; exists 1; omega.
 Qed.
 
+Lemma vec_align_8divides t: (8 | vec_align t).
+Proof.
+destruct t; unfold vec_align, typesize, typelocsize, typerank,
+vec_typ_rnk; simpl.
+- exists 2; omega.
+- exists 4; omega.
+Qed.
+
+Lemma vec_align_le_divides t1 t2:
+ vec_align t1 <= vec_align t2 -> (vec_align t1 | vec_align t2).
+Proof.
+destruct t1; destruct t2; unfold vec_align, typesize, typelocsize,
+typerank, vec_typ_rnk; simpl; intros.
+- exists 1; omega.
+- exists 2; omega.
+- contradiction.
+- exists 1; omega.
+Qed.
+
+(*
 (** [vec_low_off] should be [x-1] when [x] is the size of the second
   biggest slot-size *)
 Definition vec_low_off := 7.

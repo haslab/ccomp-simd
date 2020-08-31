@@ -1047,7 +1047,7 @@ Definition load_result (chunk: memory_chunk) (v: val) :=
   | Many32, (Vint _ | Vsingle _) => v
   | Many32, Vptr _ _ => if Archi.ptr64 then Vundef else v
   | Many64, (Vint _ | Vsingle _ | Vlong _ | Vfloat _ | Vptr _ _) => v
-  | Mvec t, Vvec t' v => if Archi.vec_typ_eq t t' then Vvec t' v else Vundef
+  | Mvec t, Vvec t' v => if Archi.vec_typ_eq t' t then Vvec t' v else Vundef
   | _, _ => Vundef
   end.
 
@@ -1062,7 +1062,7 @@ Proof.
 - destruct Archi.ptr64 eqn:SF; simpl; auto.
 - destruct Archi.ptr64 eqn:SF; simpl; auto.
 - destruct Archi.ptr64 eqn:SF; simpl; auto.
-- destruct (Archi.vec_typ_eq v0 t); simpl; auto.
+- destruct (Archi.vec_typ_eq t v0); simpl; auto.
 Qed.
 
 Lemma load_result_type:
@@ -1077,7 +1077,7 @@ Lemma load_result_same:
 Proof.
   unfold has_type, load_result; intros.
   destruct v; destruct ty; destruct Archi.ptr64; try contradiction; try discriminate; simpl; auto;
-  revert H; destruct (Archi.vec_typ_eq v0 t); auto; intros; elim n; rewrite H; reflexivity. 
+  revert H; destruct (Archi.vec_typ_eq t v0); auto; intros; elim n; rewrite H; reflexivity. 
 Qed.
 
 (** Theorems on arithmetic operations. *)
@@ -2291,7 +2291,7 @@ Lemma load_result_inject:
   inject f (Val.load_result chunk v1) (Val.load_result chunk v2).
 Proof.
 intros. inv H; destruct chunk; simpl; try constructor; destruct Archi.ptr64; try econstructor; eauto;
-destruct (Archi.vec_typ_eq v0 t); econstructor; eauto.
+destruct (Archi.vec_typ_eq t v0); econstructor; eauto.
 Qed.
 
 Remark add_inject:
