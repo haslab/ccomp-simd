@@ -3418,10 +3418,26 @@ Proof.
   intuition.
 Qed.
 
+Remark sizealign_chunk chunk:
+ exists chunk', 
+  align_chunk chunk = align_chunk chunk'
+  /\ align_chunk chunk' = size_chunk chunk'.
+Proof.
+destruct chunk;
+((exists Mint8unsigned; tauto)
+|| (exists Mint16unsigned; tauto)
+|| (exists Mint32; tauto)
+|| (exists Mint64; tauto)
+|| exists (ArchiVec.vec_sizealign_chunk v);
+   destruct v; tauto).
+Qed.
+
 Theorem aligned_area_inject:
   forall f m m' b ofs al sz b' delta,
   inject f m m' ->
-  al = 1 \/ al = 2 \/ al = 4 \/ al = 8 -> sz > 0 ->
+  (*al = 1 \/ al = 2 \/ al = 4 \/ al = 8 -> *)
+  (exists chunk, align_chunk chunk = al) ->
+  sz > 0 ->
   (al | sz) ->
   range_perm m b ofs (ofs + sz) Cur Nonempty ->
   (al | ofs) ->
@@ -3429,14 +3445,14 @@ Theorem aligned_area_inject:
   (al | ofs + delta).
 Proof.
   intros.
-  assert (P: al > 0) by omega.
+  assert (P: al > 0).
+   destruct H0 as [c <-]; apply align_chunk_pos.
   assert (Q: Z.abs al <= Z.abs sz). apply Zdivide_bounds; auto. omega.
   rewrite Z.abs_eq in Q; try omega. rewrite Z.abs_eq in Q; try omega.
   assert (R: exists chunk, al = align_chunk chunk /\ al = size_chunk chunk).
-    destruct H0. subst; exists Mint8unsigned; auto.
-    destruct H0. subst; exists Mint16unsigned; auto.
-    destruct H0. subst; exists Mint32; auto.
-    subst; exists Mint64; auto.
+   destruct H0 as [c Hc].
+   generalize (sizealign_chunk c); intros [c' [Hc1' Hc2']].
+   exists c'; rewrite <- Hc2', <- Hc1', Hc; auto.
   destruct R as [chunk [A B]].
   assert (valid_access m chunk b ofs Nonempty).
     split. red; intros; apply H3. omega. congruence.

@@ -61,6 +61,14 @@ typerank, vec_typ_rnk; simpl; intros.
 - exists 1; omega.
 Qed.
 
+(** [vec_sizealign_chunk t] returns a 'chunk' whose alignment is its size
+ and has the same alignment than [Mvec t] *)
+Definition vec_sizealign_chunk t :=
+ match t with
+ | T128 => Mvec T128
+ | T256 => Mvec T256
+ end.
+
 (*
 (** [vec_low_off] should be [x-1] when [x] is the size of the second
   biggest slot-size *)
