@@ -15,8 +15,8 @@ let ia32_mopts =
 [ "-mpclmul", "enable PCLMUL support", cPCLMUL, ["__PCLMUL__"], None
 ; "-mmmx", "enable mmx support", cMMX, ["__MMX__"], None (** NOTE: CHECKME **)
 ; "-maes", "enable AESNI support", cAES, ["__AES__"], None
-; "-msse42", "enable SSE4.2 support", cSSE42, ["__SSE42__"], Some "-msse41"
-; "-msse41", "enable SSE4.1 support", cSSE41, ["__SSE41__"], Some "-mssse3"
+; "-msse42", "enable SSE4.2 support", cSSE42, ["__SSE4_2__"], Some "-msse41"
+; "-msse41", "enable SSE4.1 support", cSSE41, ["__SSE4_1__"], Some "-mssse3"
 ; "-mssse3", "enable SSSE3 support", cSSSE3, ["__SSSE3__"], Some "-msse3"
 ; "-msse3", "enable SSE3 support", cSSE3, ["__SSE3__"], Some "-msse2"
 ; "-msse2", "enable SSE2 support", cSSE2, ["__SSE2__"], Some "-msse"
