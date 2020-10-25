@@ -79,6 +79,22 @@ $ make
 where `$OS` is either `macosx` or `linux`.
 
 
+---
+
+## Summary of Changes
+
+| component     |  files affected  | modified/added lines |
+| ------------- | ---------------- | -------------------- |
+| backend       | 26               | 795                  |
+| cfrontend     | 12               | 166                  |
+| common        | 6                | 76                   |
+| cparser       | 11               | 191                  |
+| driver        | 5                | 159                  |
+| extraction    | 1                | 13                   |
+| lib           | 2                | 28                   |
+| ia32          | 22               | 4886                 |
+| taintanalysis | 27               | 8859                 |
+| tools         | 2                | 3311                 |
 
 ---
 
