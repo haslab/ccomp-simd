@@ -50,15 +50,20 @@ Variable b: bounds.
 
 Definition mreg_within_bounds (r: mreg) :=
   index_int_callee_save r < bound_int_callee_save b
-  /\ index_float_callee_save r < bound_float_callee_save b.
+  /\ index_float_callee_save r + size_float_callee_save r - 1
+     < bound_float_callee_save b.
 
-Lemma mreg_seq_within_bounds: forall r1 r2,
- mreg_seq r1 r2 -> mreg_within_bounds r1 -> mreg_within_bounds r2.
+(* SIMD 
+Lemma mreg_diff_within_bounds: forall r1 r2,
+ ~mreg_diff r1 r2 -> mreg_within_bounds r1 -> mreg_within_bounds r2.
 Proof.
-unfold mreg_within_bounds; intros r1 r2 H H1. symmetry in H.
-rewrite (index_float_callee_save_seq r2 r1); auto.
-rewrite (index_int_callee_save_seq r2 r1); auto. 
+unfold mreg_within_bounds; intros r1 r2.
+destruct r1; destruct r2; intro H; vm_compute in H;
+try (elim H; reflexivity); auto; simpl; intros [H1 [H2 H3]];
+split; try assumption || (split; omega).
+(* pois!!! isto não é verdade!!! (só se bound_float_callee_save tiver alinhamento 2 *) admit. admit. admit. admit.
 Qed.
+ eSIMD *)
 
 Definition slot_within_bounds (sl: slot) (ofs: Z) (ty: typ) :=
   match sl with
@@ -153,7 +158,8 @@ Definition max_over_slots_of_funct (valu: slot * Z * typ -> Z) : Z :=
 
 Definition int_callee_save (r: mreg) := 1 + index_int_callee_save r.
 
-Definition float_callee_save (r: mreg) := 1 + index_float_callee_save r.
+Definition float_callee_save (r: mreg) := 
+ size_float_callee_save r + index_float_callee_save r.
 
 Definition local_slot (s: slot * Z * typ) :=
   match s with (Local, ofs, ty) => ofs + typesize ty | _ => 0 end.
@@ -201,6 +207,12 @@ Program Definition function_bounds :=
     (max_over_regs_of_funct_pos int_callee_save)
     (max_over_regs_of_funct_pos float_callee_save)
     _ _.
+(* SIMD 
+Next Obligation.
+  apply Zle_ge. apply Zmax_bound_l. 
+  apply Zge_le. apply max_over_regs_of_funct_pos.  
+Qed.
+ eSIMD *)
 Next Obligation.
   apply Zle_ge. eapply Zle_trans. 2: apply Zmax2.
   apply Zge_le. apply max_over_slots_of_funct_pos.  
@@ -272,13 +284,28 @@ Qed.
 Lemma float_callee_save_bound:
   forall i r,
   In i f.(fn_code) -> In r (regs_of_instr i) ->
-  index_float_callee_save r < bound_float_callee_save function_bounds.
+  index_float_callee_save r + size_float_callee_save r - 1 < bound_float_callee_save function_bounds.
 Proof.
   intros. apply Zlt_le_trans with (float_callee_save r).
-  unfold float_callee_save. omega.
-  unfold function_bounds, bound_float_callee_save. 
+  unfold float_callee_save. 
+   omega.
+  unfold function_bounds, bound_float_callee_save.
   eapply max_over_regs_of_funct_bound; eauto.
 Qed.
+
+(*
+Lemma vec_callee_save_bound:
+  forall i r,
+  In i f.(fn_code) -> In r (regs_of_instr i) ->
+  index_vec_callee_save r + 1 < bound_float_callee_save function_bounds.
+Proof.
+  intros. apply Zlt_le_trans with (vec_callee_save r).
+  unfold vec_callee_save. omega.
+  unfold function_bounds, bound_float_callee_save.
+  apply Zmax_bound_r.
+  eapply max_over_regs_of_funct_bound; eauto.
+Qed.
+*)
 
 Lemma local_slot_bound:
   forall i ofs ty,

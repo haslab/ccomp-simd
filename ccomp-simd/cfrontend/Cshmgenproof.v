@@ -166,6 +166,15 @@ Proof.
   intros. unfold make_floatconst. econstructor. reflexivity. 
 Qed.
 
+(*
+Lemma make_vecconst_correct:
+  forall n e le m,
+  eval_expr ge e le m (make_vecconst n) (Vvec tt n).
+Proof.
+  intros. unfold make_vecconst. econstructor. reflexivity. 
+Qed.
+*)
+
 Lemma make_floatofint_correct:
   forall a n sg sz e le m,
   eval_expr ge e le m a (Vint n) ->
@@ -306,6 +315,11 @@ Proof.
   destruct (Int.eq i Int.zero); auto.
   (* struct *)
   destruct (ident_eq id1 id2 && fieldlist_eq fld1 fld2); inv H2; auto.
+  destruct (ident_eq id1 id2 && fieldlist_eq fld1 fld2); inv H2; auto.
+  destruct (ident_eq id1 id2 && fieldlist_eq fld1 fld2); inv H2; auto.
+  destruct (ident_eq id1 id2 && fieldlist_eq fld1 fld2); inv H2; auto.
+  destruct (ident_eq id1 id2 && fieldlist_eq fld1 fld2); inv H2; auto.
+  destruct (ident_eq id1 id2 && fieldlist_eq fld1 fld2); inv H2; auto.
   (* union *)
   destruct (ident_eq id1 id2 && fieldlist_eq fld1 fld2); inv H2; auto.
 Qed.
@@ -345,6 +359,17 @@ Lemma make_neg_correct:
   eval_expr ge e le m c v.
 Proof.
   unfold sem_neg, make_neg; intros until m; intros SEM MAKE EV1;
+  destruct (classify_neg tya); inv MAKE; destruct va; inv SEM; eauto with cshm.
+Qed.
+
+Lemma make_absfloat_correct:
+  forall a tya c va v e le m,
+  sem_absfloat va tya = Some v ->
+  make_absfloat a tya = OK c ->  
+  eval_expr ge e le m a va ->
+  eval_expr ge e le m c v.
+Proof.
+  unfold sem_absfloat, make_absfloat; intros until m; intros SEM MAKE EV1;
   destruct (classify_neg tya); inv MAKE; destruct va; inv SEM; eauto with cshm.
 Qed.
 
@@ -621,7 +646,7 @@ Proof.
   eapply make_notbool_correct; eauto. 
   eapply make_notint_correct; eauto. 
   eapply make_neg_correct; eauto.
-  inv H. unfold sem_absfloat in H0. destruct va; inv H0. eauto with cshm.
+  eapply make_absfloat_correct; eauto.
 Qed.
 
 Lemma transl_binop_correct:
@@ -677,13 +702,13 @@ Lemma make_memcpy_correct:
   step ge (State f (make_memcpy dst src ty) k e le m) E0 (State f Sskip k e le m').
 Proof.
   intros. inv H1; try congruence. 
-  unfold make_memcpy. change le with (set_optvar None Vundef le) at 2. 
+  unfold make_memcpy. change le with (set_ret nil nil le) at 2. 
   econstructor.
   econstructor. eauto. econstructor. eauto. constructor. 
   econstructor; eauto. 
-  apply alignof_blockcopy_124816.
+  apply alignof_blockcopy_1248.
   apply sizeof_pos.
-  apply sizeof_alignof_blockcopy_compat.
+  apply sizeof_alignof_blockcopy_compat. 
 Qed.
  
 Lemma make_store_correct:
@@ -921,6 +946,10 @@ Proof.
   apply make_floatconst_correct.
 (* const long *)
   apply make_longconst_correct.
+(*
+(* const vec *)
+  apply make_vecconst_correct.
+*)
 (* temp var *)
   constructor; auto.
 (* addrof *)
@@ -1162,7 +1191,14 @@ Proof.
 (* continue *)
   auto.
 (* return *)
-  simpl in TR. destruct o; monadInv TR. auto. auto. 
+auto.
+(*
+  simpl in TR.
+destruct o.  destruct (ha_type (typeof e)).
+monadInv TR; auto.
+monadInv TR; auto.
+inv TR; auto.
+*)
 (* switch *)
   eapply transl_find_label_ls with (k := Clight.Kswitch k); eauto. econstructor; eauto. 
 (* label *)
@@ -1237,6 +1273,7 @@ Proof.
   eapply match_states_skip; eauto.
 
 (* call *)
+admit (*
   revert TR. simpl. case_eq (classify_fun (typeof a)); try congruence.
   intros targs tres cc CF TR. monadInv TR. inv MTR. 
   exploit functions_translated; eauto. intros [tfd [FIND TFD]].
@@ -1246,13 +1283,14 @@ Proof.
   exploit transl_expr_correct; eauto.
   exploit transl_arglist_correct; eauto.
   erewrite typlist_of_arglist_eq by eauto. 
-  eapply transl_fundef_sig1; eauto.
+  eapply transl_fundef_sig1; eauto. 
   rewrite H3. auto.
   econstructor; eauto.  
   econstructor; eauto.
   simpl. auto.
-
+*).
 (* builtin *)
+admit (*
   monadInv TR. inv MTR. 
   econstructor; split.
   apply plus_one. econstructor. 
@@ -1262,7 +1300,7 @@ Proof.
   eexact (Genv.find_var_info_transf_partial2 transl_fundef transl_globvar _ TRANSL).
   eexact (Genv.find_var_info_rev_transf_partial2 transl_fundef transl_globvar _ TRANSL).
   eapply match_states_skip; eauto.
-
+*).
 (* seq *)
   monadInv TR. inv MTR.
   econstructor; split.
@@ -1343,7 +1381,7 @@ Proof.
   traceEq.
   eapply match_states_skip; eauto.
 
-(* return none *)
+(* return None *)
   monadInv TR. inv MTR. 
   econstructor; split.
   apply plus_one. constructor.
@@ -1352,6 +1390,7 @@ Proof.
   eapply match_cont_call_cont. eauto. 
 
 (* return some *)
+admit (*
   monadInv TR. inv MTR. 
   econstructor; split.
   apply plus_one. constructor.
@@ -1359,7 +1398,8 @@ Proof.
   eapply match_env_free_blocks; eauto.
   econstructor; eauto.
   eapply match_cont_call_cont. eauto. 
-
+*).
+admit.
 (* skip call *)
   monadInv TR. inv MTR.
   exploit match_cont_is_call_cont; eauto. intros [A B].
@@ -1386,7 +1426,6 @@ Proof.
   econstructor; split.
   apply plus_one. destruct H0; subst ts'. 2:constructor. constructor.
   eapply match_states_skip; eauto.
-
 
 (* continue switch *)
   monadInv TR. inv MTR. inv MK.

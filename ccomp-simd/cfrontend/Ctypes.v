@@ -147,6 +147,43 @@ Definition attr_of_type (ty: type) :=
   | Tvecdata => noattr
   end.
 
+(** Change the top-level attributes of a type *)
+
+Definition change_attributes (f: attr -> attr) (ty: type) : type :=
+  match ty with
+  | Tvoid => ty
+  | Tvecdata => ty
+  | Tint sz si a => Tint sz si (f a)
+  | Tlong si a => Tlong si (f a)
+  | Tfloat sz a => Tfloat sz (f a)
+  | Tpointer elt a => Tpointer elt (f a)
+  | Tarray elt sz a => Tarray elt sz (f a)
+  | Tfunction args res cc => ty
+  | Tstruct id fld a => Tstruct id fld (f a)
+  | Tunion id fld a => Tunion id fld (f a)
+  | Tcomp_ptr id a => Tcomp_ptr id (f a)
+  end.
+
+(** Erase the top-level attributes of a type *)
+
+Definition remove_attributes (ty: type) : type :=
+  change_attributes (fun _ => noattr) ty.
+
+(** Add extra attributes to the top-level attributes of a type *)
+
+Definition attr_union (a1 a2: attr) : attr :=
+  {| attr_volatile := a1.(attr_volatile) || a2.(attr_volatile);
+     attr_alignas :=
+       match a1.(attr_alignas), a2.(attr_alignas) with
+       | None, al => al
+       | al, None => al
+       | Some n1, Some n2 => Some (N.max n1 n2)
+       end 
+  |}.
+
+Definition merge_attributes (ty: type) (a: attr) : type :=
+  change_attributes (attr_union a) ty.
+
 Definition type_int32s := Tint I32 Signed noattr.
 Definition type_bool := Tint IBool Signed noattr.
 
@@ -184,7 +221,7 @@ Fixpoint alignof (t: type) : Z :=
       | Tstruct _ fld _ => alignof_fields fld
       | Tunion _ fld _ => alignof_fields fld
       | Tcomp_ptr _ _ => 4
-      | Tvecdata => 16
+      | Tvecdata => Archi.vec_align_chunk tt
       end
   end
 
@@ -229,7 +266,7 @@ Proof.
   exists 2%nat; auto.
   exists 0%nat; auto.
   exists 2%nat; auto.
-  exists 4%nat; auto.
+  exists 3%nat; auto. 
   induction f; simpl.
   exists 0%nat; auto.
   apply Z.max_case; auto.
@@ -265,7 +302,7 @@ Fixpoint sizeof (t: type) : Z :=
   | Tstruct _ fld _ => align (sizeof_struct fld 0) (alignof t)
   | Tunion _ fld _ => align (sizeof_union fld) (alignof t)
   | Tcomp_ptr _ _ => 4
-  | Tvecdata => 16
+  | Tvecdata => 4*Archi.vec_typesize tt
   end
 
 with sizeof_struct (fld: fieldlist) (pos: Z) {struct fld} : Z :=
@@ -331,7 +368,7 @@ Local Transparent alignof.
 - change (alignof (Tunion i f a) | align (sizeof_union f) (alignof (Tunion i f a))).
   apply align_divides. apply alignof_pos.
 - rewrite H; apply Zdivide_refl.
-- apply Zdivide_refl.
+- exists (16/Archi.vec_align_chunk tt); auto.
 Qed.
 
 (** Byte offset for a field in a struct or union.
@@ -490,7 +527,7 @@ Definition access_mode (ty: type) : mode :=
   | Tstruct _ _ _ => By_copy
   | Tunion _ _ _ => By_copy
   | Tcomp_ptr _ _ => By_nothing
-  | Tvecdata => By_value Mint128
+  | Tvecdata => By_value (Mvec tt)
 end.
 
 (** For the purposes of the semantics and the compiler, a type denotes
@@ -598,27 +635,26 @@ Fixpoint alignof_blockcopy (t: type) : Z :=
   | Tpointer _ _ => 4
   | Tarray t' _ _ => alignof_blockcopy t'
   | Tfunction _ _ _ => 1
-  | Tstruct _ fld _ => Zmin 16 (alignof t)
-  | Tunion _ fld _ => Zmin 16 (alignof t)
+  | Tstruct _ fld _ => Zmin 8 (alignof t)
+  | Tunion _ fld _ => Zmin 8 (alignof t)
   | Tcomp_ptr _ _ => 4
-  | Tvecdata => 16
+  | Tvecdata => Archi.vec_align_chunk tt
   end.
 
-Lemma alignof_blockcopy_124816:
+Lemma alignof_blockcopy_1248:
   forall ty, let a := alignof_blockcopy ty in
-  a = 1 \/ a = 2 \/ a = 4 \/ a = 8 \/ a=16.
+  a = 1 \/ a = 2 \/ a = 4 \/ a = 8.
 Proof.
-  assert (X: forall ty, let a := Zmin 16 (alignof ty) in
-             a = 1 \/ a = 2 \/ a = 4 \/ a = 8 \/ a = 16).
+  assert (X: forall ty, let a := Zmin 8 (alignof ty) in
+             a = 1 \/ a = 2 \/ a = 4 \/ a = 8).
   {
     intros. destruct (alignof_two_p ty) as [n EQ]. unfold a; rewrite EQ. 
     destruct n; auto.
     destruct n; auto.
     destruct n; auto.
-    destruct n; auto.
-    right; right; right; right. apply Z.min_l.
+    right; right; right. apply Z.min_l.
     rewrite two_power_nat_two_p. rewrite ! inj_S. 
-    change 16 with (two_p 4). apply two_p_monotone. omega. 
+    change 8 with (two_p 3). apply two_p_monotone. omega.
   }
   induction ty; simpl; auto.
   destruct i; auto.
@@ -628,23 +664,22 @@ Qed.
 Lemma alignof_blockcopy_pos:
   forall ty, alignof_blockcopy ty > 0.
 Proof.
-  intros. generalize (alignof_blockcopy_124816 ty). simpl. intuition omega.
+  intros. generalize (alignof_blockcopy_1248 ty). simpl. intuition omega.
 Qed.
 
 Lemma sizeof_alignof_blockcopy_compat:
   forall ty, (alignof_blockcopy ty | sizeof ty).
 Proof.
-  assert (X: forall ty sz, (alignof ty | sz) -> (Zmin 16 (alignof ty) | sz)).
+  assert (X: forall ty sz, (alignof ty | sz) -> (Zmin 8 (alignof ty) | sz)).
   {
     intros. destruct (alignof_two_p ty) as [n EQ]. rewrite EQ in *.
     destruct n; auto.
     destruct n; auto.
     destruct n; auto.
-    destruct n; auto.
     eapply Zdivide_trans; eauto. 
     apply Z.min_case. 
-    replace (two_power_nat (S(S(S(S n))))) with (two_p (4 + Z.of_nat n)).
-    rewrite two_p_is_exp by omega. change (two_p 4) with 16.
+    replace (two_power_nat (S(S(S n)))) with (two_p (3 + Z.of_nat n)).
+    rewrite two_p_is_exp by omega. change (two_p 3) with 8.
     exists (two_p (Z.of_nat n)). ring.
     rewrite two_power_nat_two_p. rewrite !inj_S. f_equal. omega.
     apply Zdivide_refl.
@@ -661,7 +696,7 @@ Proof.
   apply X. apply align_divides. apply alignof_pos.
   apply X. apply align_divides. apply alignof_pos.
   apply Zdivide_refl.
-  apply Zdivide_refl.
+  exists 2; auto.
 Qed.
 
 (** Extracting a type list from a function parameter declaration. *)
@@ -672,6 +707,77 @@ Fixpoint type_of_params (params: list (ident * type)) : typelist :=
   | (id, ty) :: rem => Tcons ty (type_of_params rem)
   end.
 
+(** * Homogeneous-aggregates *)
+
+(** Candidates for homogeneous aggregates are structures of [Tfloat]
+ or [Tvec] fields *)
+Definition is_float_or_vec (ty: type) :=
+ match ty with
+ | Tfloat _ _ => true
+ | Tvecdata => true
+ | _ => false
+ end.
+
+(*
+Fixpoint ha_basetype (ty:type) :=
+ match ty with
+ | Tstruct _ fl _ => ha_basetype_fl fl
+ | Tarray t size _ => if Z.ltb 0 size then ha_basetype t else None
+ | _ => if is_float_or_vec ty then Some ty else None
+ end
+with ha_basetype_fl (l:fieldlist) :=
+ match l with
+ | Fnil => None
+ | Fcons _ t _ => ha_basetype t
+ end.
+*)
+
+Fixpoint ha_type_chk (ty:type) :=
+ match ty with
+ | Tstruct _ fl _ => ha_type_chk_fl fl
+ | Tarray t size _ => 
+   if Z.ltb 0 size
+   then match ha_type_chk t with
+        | Some (n,bt) => if type_eq t bt then Some (size*n,bt) else None
+        | _ => None
+        end
+   else None
+ | _ => if (is_float_or_vec ty) then Some (1,ty) else None
+ end
+with ha_type_chk_fl (l:fieldlist) :=
+ match l with
+ | Fnil => None
+ | Fcons _ t Fnil => ha_type_chk t
+ | Fcons _ t fl =>
+   match ha_type_chk t with
+   | Some (n1,t1) => match ha_type_chk_fl fl with
+                     | Some (n,bt) => if type_eq t1 bt
+                                      then Some (n1+n,bt)
+                                      else None
+                     | _ => None
+                     end
+   | _ => None
+   end
+ end.
+
+Definition ha_type (ty:type) :=
+ let n := 4 (*Archi.hom_fstruct_size*) in
+ if Z.ltb 0 n
+ then match ty with
+      | Tstruct _ _ _ => 
+        match ha_type_chk ty with
+        | Some (size,bt) => if Z.leb size n
+                            then Some (size,bt)
+                            else None
+        | _ => None
+        end
+      | _ => None
+      end
+ else None.
+
+Definition is_ha_type (ty:type) : bool :=
+ match ha_type ty with None => false | _ => true end.
+
 (** Translating C types to Cminor types and function signatures. *)
 
 Definition typ_of_type (t: type) : AST.typ :=
@@ -679,18 +785,8 @@ Definition typ_of_type (t: type) : AST.typ :=
   | Tfloat F32 _ => AST.Tsingle
   | Tfloat _ _ => AST.Tfloat
   | Tlong _ _ => AST.Tlong
-  | Tvecdata => AST.T128
+  | Tvecdata => AST.Tvec tt
   | _ => AST.Tint
-  end.
-
-Definition opttyp_of_type (t: type) : option AST.typ :=
-  match t with
-  | Tvoid => None
-  | Tfloat F32 _ => Some AST.Tsingle
-  | Tfloat _ _ => Some AST.Tfloat
-  | Tlong _ _ => Some AST.Tlong
-  | Tvecdata => Some AST.T128
-  | _ => Some AST.Tint
   end.
 
 Fixpoint typlist_of_typelist (tl: typelist) : list AST.typ :=
@@ -699,8 +795,32 @@ Fixpoint typlist_of_typelist (tl: typelist) : list AST.typ :=
   | Tcons hd tl => typ_of_type hd :: typlist_of_typelist tl
   end.
 
+Fixpoint rep_typelist t n :=
+ match n with
+ | O => Tnil
+ | S n' => Tcons t (rep_typelist t n')
+ end.
+
+Definition rettypelist_of_type (t: type) : typelist :=
+  match ha_type t with
+  | Some (size,bt) => rep_typelist bt (Zabs_nat size)
+  | _ => match t with Tvoid => Tnil | _ => Tcons t Tnil end
+  end.
+
+Definition rettyp_of_type (t: type) : list AST.typ :=
+ typlist_of_typelist (rettypelist_of_type t).
+(*
+  match t with
+  | Tvoid => nil
+  | _ => match ha_type t with
+         | Some (size,bt) => list_repeat (Zabs_nat size) (typ_of_type bt)
+         | _ => (typ_of_type t)::nil
+         end
+  end.
+*)
+
 Definition signature_of_type (args: typelist) (res: type) (cc: calling_convention): signature :=
-  mksignature (typlist_of_typelist args) (opttyp_of_type res) cc.
+  mksignature (typlist_of_typelist args) (rettyp_of_type res) cc.
 
 (** Like [typ_of_type], but apply default argument promotion. *)
 
@@ -708,7 +828,124 @@ Definition typ_of_type_default (t: type) : AST.typ :=
   match t with
   | Tfloat _ _ => AST.Tfloat
   | Tlong _ _ => AST.Tlong
-  | Tvecdata => AST.T128
+  | Tvecdata => AST.Tvec tt
   | _ => AST.Tint
   end.
 
+Definition chunk_of_ha (ty:type) : option memory_chunk :=
+ match ha_type ty with
+ | None => None
+ | Some (_,bt) => Some (chunk_of_type (typ_of_type bt))
+ end.
+
+Fixpoint flatten {A} (l: list (list A)): list A :=
+ match l with
+ | nil => nil
+ | x :: xs => x ++ flatten xs
+ end.
+
+Require Memdata Memory Values.
+Require Import Integers.
+
+Definition encode_vals_ha (ty:type) (lval:list Values.val)
+: option (list Memdata.memval) :=
+ match chunk_of_ha ty with
+ | None => None
+ | Some chunk => Some (flatten (map (Memdata.encode_val chunk) lval))
+ end.
+
+Fixpoint loadv_iter chunk m b ofs n :=
+ match n with
+ | O => Some nil
+ | S n' =>
+   match Memory.Mem.loadv chunk m (Values.Vptr b ofs) with
+   | Some v => match loadv_iter chunk m b 
+                                (Int.add ofs (Int.repr (Memdata.size_chunk chunk)))
+                                n' with
+               | Some vl => Some (v::vl)
+               | _ => None
+               end
+   | _ => None
+   end
+ end.
+
+Definition loadv_ha ty b ofs m : option (list Values.val) :=
+ match ha_type ty with
+ | Some (n,bt) => loadv_iter (chunk_of_type (typ_of_type bt)) m
+                             b ofs (Zabs_nat n)
+ | _ => None
+ end.
+
+(*
+
+Fixpoint homogeneous_fieldlist (ty:type) (l:fieldlist) (n:nat) {struct l} :=
+ match n with
+ | O => false
+ | S n => match l with
+          | Fnil => true
+          | Fcons _ t l' => if type_eq t ty
+                            then homogeneous_fieldlist ty l' n
+                            else false
+          end
+ end.
+
+(** [homogeneous_aggregate] checks if [ty] is an hom. aggregate.
+ Returns a pair with the scalar type and the field-list *)
+Definition homogeneous_aggregate (ty:type) : option (type*fieldlist) :=
+  let n := Archi.hom_fstruct_size in
+  match n with
+  | O => None
+  | S n => match ty with
+           | Tstruct _ (Fcons i t l) _ =>
+               if andb (is_float_or_vec t)
+                       (homogeneous_fieldlist t l n)
+               then Some (t,Fcons i t l)
+               else None
+           | _ => None
+           end
+  end.
+
+Definition chunk_of_homfstruct (ty:type) : option memory_chunk :=
+ match homogeneous_aggregate ty with
+ | None => None
+ | Some (t,_) => Some (chunk_of_type (typ_of_type t))
+ end.
+
+
+Fixpoint get_field_fieldlist {A} (fl:fieldlist) id (l:list A) : option A :=
+ match fl, l with
+ | Fcons id' _ l', v::vs => if ident_eq id id'
+                            then Some v
+                            else get_field_fieldlist l' id vs
+ | _, _ => None
+ end.
+
+Definition get_field_homfstruct {A} (ty:type) (id:ident) (l:list A)
+: option (type*A) :=
+ match homogeneous_aggregate ty with
+ | None => None
+ | Some (t,fld) => match get_field_fieldlist fld id l with
+                   | None => None
+                   | Some v => Some (t,v)
+                   end
+ end.
+
+Fixpoint fieldlist_types (l:fieldlist) : list type :=
+  match l with
+  | Fnil => nil
+  | Fcons _ t l' => t::fieldlist_types l'
+  end.
+
+(** [res_typelist] returns the list of return types (singleton for
+ non-homogeneous aggregates) *)
+Definition res_typelist (ty: type) :=
+  match ty with
+  | Tvoid => nil
+  | Tstruct _ fld _ => match homogeneous_aggregate ty with
+                       | None => ty::nil
+                       | Some (t,fld) => fieldlist_types fld
+                       end
+  | _ => ty::nil
+  end.
+
+*)

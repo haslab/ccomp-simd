@@ -13,13 +13,16 @@
 (** Locations are a refinement of RTL pseudo-registers, used to reflect
   the results of register allocation (file [Allocation]). *)
 
-Require Export Machregs.
-Import Coqlib.
-Import Maps.
+Require Import OrderedType.
+Require Import Coqlib.
+Require Import Maps.
 Require Import Ordered.
-Import OrderedType.
-Import AST.
-Import Values.
+Require Import AST.
+Require Import Values.
+Require Export Machregs.
+
+(** compcert-simd: simd support is arch. dependent. *)
+Require Import Archi.
 
 (** * Representation of locations *)
 
@@ -70,11 +73,9 @@ Open Scope Z_scope.
 
 Definition typesize (ty: typ) : Z :=
   match ty with
-  | Tint => 1
-  | Tlong => 2
-  | T128 => 4
-  | Tfloat => 2 
-  | Tsingle => 1
+  | Tint | Tsingle => 1
+  | Tlong | Tfloat => 2 
+  | Tvec t => vec_typesize t
   end.
 
 Lemma typesize_pos:
@@ -100,30 +101,9 @@ Module Loc.
     | S sl pos ty => ty
     end.
 
-  (** Leibniz equality *)
   Lemma eq: forall (p q: loc), {p = q} + {p <> q}.
   Proof.
     decide equality.
-    apply mreg_eq.
-    apply typ_eq.
-    apply zeq.
-    apply slot_eq.
-  Defined.
-
-  (** Semantic equality (reflecting register overlaping) *)
-  Definition seq (p q:loc) :=
-    match p, q with
-    | R r1, R r2 => mreg_seq r1 r2
-    | _,_ => p = q
-    end.
-
-  Lemma seq_dec: forall (p q: loc), {seq p q} + {~seq p q}.
-  Proof.
-  intros [r1|] [r2|]; intros; unfold seq.
-  - apply mreg_seq_dec.
-  - right; discriminate.
-  - right; discriminate.
-  - decide equality.
     apply mreg_eq.
     apply typ_eq.
     apply zeq.
@@ -143,7 +123,8 @@ Module Loc.
 *)
   Definition diff (l1 l2: loc) : Prop :=
     match l1, l2 with
-    | R r1, R r2 => ~mreg_seq r1 r2
+    | R r1, R r2 => 
+        mreg_diff r1 r2
     | S s1 d1 t1, S s2 d2 t2 =>
         s1 <> s2 \/ d1 + typesize t1 <= d2 \/ d2 + typesize t2 <= d1
     | _, _ =>
@@ -153,7 +134,8 @@ Module Loc.
   Lemma same_not_diff:
     forall l, ~(diff l l).
   Proof.
-    destruct l; unfold diff; unfold mreg_seq; auto.
+    destruct l; unfold diff; auto.
+     apply mreg_diff_refl.
     red; intros. destruct H; auto. generalize (typesize_pos ty); omega. 
   Qed.
 
@@ -166,14 +148,15 @@ Module Loc.
   Lemma diff_sym:
     forall l1 l2, diff l1 l2 -> diff l2 l1.
   Proof.
-    destruct l1; destruct l2; unfold diff; unfold mreg_seq; auto.
+    destruct l1; destruct l2; unfold diff; auto.
+     apply mreg_diff_sym.
     intuition.
   Qed.
 
   Definition diff_dec (l1 l2: loc) : { Loc.diff l1 l2 } + { ~Loc.diff l1 l2 }.
   Proof.
     intros. destruct l1; destruct l2; simpl.
-  - destruct (mreg_seq_dec r r0). right; tauto. left; auto.
+  - apply mreg_diff_dec.
   - left; auto.
   - left; auto.
   - destruct (slot_eq sl sl0).
@@ -327,30 +310,14 @@ Module Locmap.
 
   Definition set (l: loc) (v: val) (m: t) : t :=
     fun (p: loc) =>
-      if Loc.eq l p then
-        match l with
-        | R r => v
-        | S sl ofs ty => Val.load_result (chunk_of_type ty) v
-        end
-      else if Loc.diff_dec l p then
-        m p
+      if Loc.eq l p then v
+      else if Loc.diff_dec l p then m p
       else Vundef.
 
   Lemma gss: forall l v m,
-    (set l v m) l = 
-    match l with R r => v | S sl ofs ty => Val.load_result (chunk_of_type ty) v end.
+    (set l v m) l = v.
   Proof.
     intros. unfold set. apply dec_eq_true.
-  Qed.
-
-  Lemma gss_reg: forall r v m, (set (R r) v m) (R r) = v.
-  Proof.
-    intros. unfold set. rewrite dec_eq_true. auto.
-  Qed.
-
-  Lemma gss_typed: forall l v m, Val.has_type v (Loc.type l) -> (set l v m) l = v.
-  Proof.
-    intros. rewrite gss. destruct l. auto. apply Val.load_result_same; auto. 
   Qed.
 
   Lemma gso: forall l v m p, Loc.diff l p -> (set l v m) p = m p.
@@ -378,11 +345,10 @@ Module Locmap.
   Proof.
     assert (P: forall ll l m, m l = Vundef -> (undef ll m) l = Vundef).
       induction ll; simpl; intros. auto. apply IHll. 
-      unfold set. destruct (Loc.eq a l).
-      destruct a. auto. destruct ty; reflexivity. 
+      unfold set. destruct (Loc.eq a l). auto.
       destruct (Loc.diff_dec a l); auto.
     induction ll; simpl; intros. contradiction. 
-    destruct H. apply P. subst a. apply gss_typed. exact I. 
+    destruct H. apply P. subst a. apply gss.  
     auto.
   Qed.
 
@@ -411,10 +377,15 @@ Module IndexedTyp <: INDEXED_TYPE.
     | Tsingle => 2%positive
     | Tfloat => 3%positive
     | Tlong => 4%positive
-    | T128 => 5%positive
+    | Tvec t => (4+vec_variant_index t)%positive
     end.
   Lemma index_inj: forall x y, index x = index y -> x = y.
-  Proof. destruct x; destruct y; simpl; congruence. Qed.
+  Proof.
+  destruct x; destruct y; simpl; try congruence.
+(* SIMD *)
+  destruct v; destruct v0; auto.
+(* eSIMD *)
+  Qed.
   Definition eq := typ_eq.
 End IndexedTyp.
 
@@ -436,7 +407,7 @@ Module OrderedLoc <: OrderedType.
   Definition eq (x y: t) := x = y.
   Definition lt (x y: t) :=
     match x, y with
-    | R r1, R r2 => Plt (IndexedMreg.index r1) (IndexedMreg.index r2)
+    | R r1, R r2 => OrderedMreg.lt r1 r2
     | R _, S _ _ _ => True
     | S _ _ _, R _ => False
     | S sl1 ofs1 ty1, S sl2 ofs2 ty2 =>
@@ -453,7 +424,7 @@ Module OrderedLoc <: OrderedType.
   Proof.
     unfold lt; intros. 
     destruct x; destruct y; destruct z; try tauto.
-    eapply Plt_trans; eauto.
+     eapply OrderedMreg.lt_trans; eauto.
     destruct H. 
     destruct H0. left; eapply OrderedSlot.lt_trans; eauto.
     destruct H0. subst sl0. auto. 
@@ -468,156 +439,102 @@ Module OrderedLoc <: OrderedType.
   Proof.
     unfold lt, eq; intros; red; intros. subst y. 
     destruct x. 
-    eelim Plt_strict; eauto.
+     eelim OrderedMreg.lt_not_eq; eauto.
+     reflexivity.
     destruct H. eelim OrderedSlot.lt_not_eq; eauto. red; auto. 
     destruct H. destruct H0. omega. 
     destruct H0. eelim OrderedTyp.lt_not_eq; eauto. red; auto.
   Qed.
   Definition compare : forall x y : t, Compare lt eq x y.
   Proof.
-    intros. destruct x; destruct y.
-  - destruct (OrderedPositive.compare (IndexedMreg.index r) (IndexedMreg.index r0)).
-    + apply LT. red. auto. 
-    + apply EQ. red. f_equal. apply IndexedMreg.index_inj. auto. 
-    + apply GT. red. auto.
-  - apply LT. red; auto. 
-  - apply GT. red; auto.
+    intros; destruct x; destruct y.
+  - destruct (OrderedMreg.compare r r0).
+    + apply LT; red; auto. 
+    + apply EQ; red; f_equal; auto. 
+    + apply GT; red; auto.
+  - apply LT; red; auto. 
+  - apply GT; red; auto.
   - destruct (OrderedSlot.compare sl sl0).
-    + apply LT. red; auto.
+    + apply LT; red; auto.
     + destruct (OrderedZ.compare pos pos0).
-      * apply LT. red. auto. 
+      * apply LT; red; auto. 
       * destruct (OrderedTyp.compare ty ty0).
-        apply LT. red; auto.
-        apply EQ. red; red in e; red in e0; red in e1. congruence. 
-        apply GT. red; auto.
-      * apply GT. red. auto. 
-    + apply GT. red; auto.
+        apply LT; red; auto.
+        apply EQ; red; red in e; red in e0; red in e1. congruence. 
+        apply GT; red; auto.
+      * apply GT; red; auto. 
+    + apply GT; red; auto.
   Defined.
-
   Definition eq_dec := Loc.eq.
 
-(** Connection between the ordering defined here and the [Loc.diff] predicate. *)
+(** Connection between the ordering defined here and the [Loc.diff] predicate.
 
-(*
-  (* without SSE 4-byte slots, a simple LT test captures the diff-bellow
-   predicate *)
-  Definition diff_low_bound_nosse (l: loc) : loc :=
-    match l with
-    | R mr => R mr (*(IndexedMreg.inv_index (xO (Pdiv2 (IndexedMreg.index mr))))*)
-    | S sl ofs ty => S sl (ofs - 1) Tfloat
-    end.
-*)
+ compcert-simd: the size of vector slots makes it impossible to capture
+  the diff-bellow predicate with a simple LT check. Instead, we use the
+  comparisons to narrow the set of possibly conflicting slots.
+ *)
 
-  (* with SSE slots, we need to adjust the offset, but the test is
-    no longer complete... (thats why we will combine it with the
-    [Loc.diff_dec] test) *)
   Definition diff_low_bound (l: loc) : loc :=
     match l with
-    | R mr => R (IndexedMreg.inv_index (xO (Pdiv2 (IndexedMreg.index mr))))
-    | S sl ofs ty => S sl (ofs-3) T128
+    | R mr => R (OrderedMreg.mreg_low_bound mr)
+    | S sl ofs ty => S sl (ofs-vec_low_off) (Tvec vec_widest)
     end.
 
   Definition diff_high_bound (l: loc) : loc :=
     match l with
-    | R mr => R (IndexedMreg.inv_index (xI (Pdiv2 (IndexedMreg.index mr))))
-    | S sl ofs ty => S sl (ofs+typesize ty-1) T128
+    | R mr => R (OrderedMreg.mreg_high_bound mr)
+    | S sl ofs ty => S sl (ofs + typesize ty - 1) (Tvec vec_widest)
     end.
 
-(*
-  Lemma outside_interval_nosse_diff: forall l l',
-    OrderedTyp.lt (Loc.type l') T128 /\ lt l' (diff_low_bound_nosse l)
-    \/ lt (diff_high_bound l) l'
-    -> Loc.diff l l'.
-  Proof.
-    intros. 
-    destruct l as [mr | sl ofs ty]; destruct l' as [mr' | sl' ofs' ty']; auto.
-    - simpl; rewrite <- IndexedMreg.index_seq; intro EQ.
-      destruct H.
-       destruct H as [_ H]; unfold diff_low_bound_nosse in H.
-       rewrite EQ in H. red in H.
-       elim (IndexedMreg.index_low_check mr'); auto.
-      unfold diff_high_bound in H.
-      rewrite EQ in H. red in H.
-       elim (IndexedMreg.index_high_check mr'); auto.
-    - simpl in *; auto.
-    - simpl in *; auto.
-    - assert (RANGE: forall ty, OrderedTyp.lt ty T128 -> 1 <= typesize ty <= 2).
-      { intros; unfold typesize. destruct ty0; try omega.
-        red in H0. elim (Plt_strict (IndexedTyp.index T128)). auto. }
-      destruct H. 
-      + destruct H. destruct H0. 
-        left. apply sym_not_equal. apply OrderedSlot.lt_not_eq; auto. 
-        destruct H0; auto. right.
-        destruct H0. destruct H1. right. generalize (RANGE ty' H); omega. 
-        destruct H0. 
-        assert (ty' = Tint \/ ty' = Tsingle). 
-        { unfold OrderedTyp.lt in H1. destruct ty'; auto; compute in H1; congruence. }
-        right. destruct H2; subst ty'; simpl typesize; omega. 
-      + destruct H. left. apply OrderedSlot.lt_not_eq; auto.
-        destruct H. right.
-        destruct H0. left; omega.
-        destruct H0. exfalso. destruct ty'; compute in H1; congruence.
-    Qed.
-*)
-
-  Lemma outside_interval_diff:
-    forall l l', lt l' (diff_low_bound l) \/ lt (diff_high_bound l) l' -> Loc.diff l l'.
+  Lemma outside_interval_diff: forall l l',
+    lt l' (diff_low_bound l) \/ lt (diff_high_bound l) l' -> Loc.diff l l'.
   Proof.
     intros. 
     destruct l as [mr | sl ofs ty]; destruct l' as [mr' | sl' ofs' ty']; simpl in *; auto.
-    - simpl; rewrite <- IndexedMreg.index_seq; intro EQ.
+    - assert (mreg_diff mr mr').
+       apply OrderedMreg.outside_interval_mreg; auto.
+      congruence.
+    - assert (RANGE: forall ty, 1 <= typesize ty <= vec_typesize vec_widest).
+      { intros; unfold typesize, vec_typesize. destruct ty0; omega. }
+      unfold vec_typesize in RANGE.
+      unfold vec_low_off in H.
       destruct H.
-       rewrite EQ in H. red in H.
-       elim (IndexedMreg.index_low_check mr'); auto.
-      unfold diff_high_bound in H.
-      rewrite EQ in H. red in H.
-       elim (IndexedMreg.index_high_check mr'); auto.
-    - assert (RANGE: forall ty, 1 <= typesize ty <= 4).
-      { intros; unfold typesize. destruct ty0; omega.  }
-      destruct H. 
       + destruct H. left. apply sym_not_equal. apply OrderedSlot.lt_not_eq; auto. 
         destruct H. right.
         destruct H0. right. generalize (RANGE ty'); omega. 
         destruct H0. 
         subst.
         right. destruct ty'; simpl; try omega.
-        red in H1. elim (Plt_strict (IndexedTyp.index T128)). auto.
-      + destruct H. left. apply OrderedSlot.lt_not_eq; auto. 
+        red in H1.
+        elim (Plt_strict (IndexedTyp.index (Tvec vec_widest))); auto.
+      + destruct H. left. apply OrderedSlot.lt_not_eq; auto.
         destruct H. right.
-        destruct H0. left; omega. 
-        destruct H0.  
-        unfold OrderedTyp.lt in H1. destruct ty'; inv H1.
+        destruct H0. left; omega.
+        destruct H0. exfalso. destruct ty'; compute in H1; congruence.
   Qed.
 
-(* jba: no longer needed...
+(*
   Lemma diff_outside_interval:
     forall l l', Loc.diff l l' -> lt l' (diff_low_bound l) \/ lt (diff_high_bound l) l'.
   Proof.
     intros. 
     destruct l as [mr | sl ofs ty]; destruct l' as [mr' | sl' ofs' ty']; simpl in *; auto.
-    -  (*unfold Plt, Pos.lt. destruct (Pos.compare (IndexedMreg.index mr) (IndexedMreg.index mr')) eqn:C.
+    - unfold Plt, Pos.lt. destruct (Pos.compare (IndexedMreg.index mr) (IndexedMreg.index mr')) eqn:C.
       elim H. apply IndexedMreg.index_inj. apply Pos.compare_eq_iff. auto.
       auto. 
- (* MREGS
-      rewrite Pos.compare_antisym. rewrite C. auto. *).
-.*).
+      rewrite Pos.compare_antisym. rewrite C. auto. 
     - destruct (OrderedSlot.compare sl sl'); auto.
       destruct H. contradiction. 
       destruct H.
       right; right; split; auto. left; omega. 
       left; right; split; auto. destruct ty'; simpl in *.
-left; omega. left; omega. left; omega. left; omega. left; omega.
-(*
       destruct (zlt ofs' (ofs - 1)). left; auto. 
-omega.
       right; split. omega. compute. auto. 
       left; omega. 
       left; omega.
       destruct (zlt ofs' (ofs - 1)). left; auto. 
       right; split. omega. compute. auto. 
-*)
   Qed.
 *)
-
 End OrderedLoc.
 

@@ -17,13 +17,11 @@ val environment: unit -> Env.t
 val identifiers: unit -> C.ident list
 val declarations: unit -> C.globdecl list
 
+val get_ident: string -> C.ident
+
 type t = {
   typedefs: (string * C.typ) list;
-  functions: (string * (C.typ * C.typ list * bool)) list
+  functions: unit -> (string * (C.typ * C.typ list * bool)) list
 }
 
 val set: t -> unit
-
-(*
-val printblt: t -> unit
- *)

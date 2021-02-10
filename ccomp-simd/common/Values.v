@@ -21,6 +21,9 @@ Require Import AST.
 Require Import Integers.
 Require Import Floats.
 
+(** comcert-simd: vector support is Arch-dependent *)
+Require Import Archi.
+
 Definition block : Type := positive.
 Definition eq_block := peq.
 
@@ -31,15 +34,16 @@ Definition eq_block := peq.
   to this address;
 - the [Vundef] value denoting an arbitrary bit pattern, such as the
   value of an uninitialized variable.
+- vector data (arch. dependent)
 *)
 
 Inductive val: Type :=
   | Vundef: val
   | Vint: int -> val
   | Vlong: int64 -> val
-  | V128: int128 -> val
   | Vfloat: float -> val
-  | Vptr: block -> int -> val.
+  | Vptr: block -> int -> val
+  | Vvec: forall t, vec_variant_sem t -> val.
 
 Definition Vzero: val := Vint Int.zero.
 Definition Vone: val := Vint Int.one.
@@ -61,10 +65,10 @@ Definition has_type (v: val) (t: typ) : Prop :=
   | Vundef, _ => True
   | Vint _, Tint => True
   | Vlong _, Tlong => True
-  | V128 _, T128 => True
   | Vfloat _, Tfloat => True
   | Vfloat f, Tsingle => Float.is_single f
   | Vptr _ _, Tint => True
+  | Vvec t1 _, Tvec t2 => t1=t2
   | _, _ => False
   end.
 
@@ -87,6 +91,11 @@ Lemma has_subtype:
 Proof.
   intros. destruct ty1; destruct ty2; simpl in H; discriminate || assumption || idtac.
   unfold has_type in *. destruct v; auto. 
+(* SIMD *)
+  destruct v; auto.
+  InvBooleans.
+  rewrite H in H0; auto.
+(* eSIMD *)  
 Qed.
 
 Lemma has_subtype_list:
@@ -579,6 +588,27 @@ Definition shrlu (v1 v2: val): val :=
   | _, _ => Vundef
   end.
 
+(** Vector operations *)
+
+Definition doubleofveclo (v: val) : val :=
+ match v with
+ | Vvec _ x => Vfloat (Float.double_of_bits (Int128.loword x))
+ | _ => Vundef
+ end.
+
+Definition doubleofvechi (v: val) : val :=
+ match v with
+ | Vvec _ x => Vfloat (Float.double_of_bits (Int128.hiword x))
+ | _ => Vundef
+ end.
+
+Definition vecofdoubles (v1 v2: val) : val :=
+ match v1, v2 with
+ | Vfloat d1, Vfloat d2 => Vvec tt (Int128.ofwords (Float.bits_of_double d1)
+                                                   (Float.bits_of_double d2))
+ | _, _ => Vundef
+ end.
+
 (** Comparisons *)
 
 Section COMPARISONS.
@@ -683,9 +713,9 @@ Definition load_result (chunk: memory_chunk) (v: val) :=
   | Mint32, Vint n => Vint n
   | Mint32, Vptr b ofs => Vptr b ofs
   | Mint64, Vlong n => Vlong n
-  | Mint128, V128 n => V128 n
   | Mfloat32, Vfloat f => Vfloat(Float.singleoffloat f)
   | Mfloat64, Vfloat f => Vfloat f
+  | Mvec t, Vvec t' v => if vec_typ_eq t t' then Vvec t' v else Vundef
   | _, _ => Vundef
   end.
 
@@ -693,13 +723,19 @@ Lemma load_result_type:
   forall chunk v, has_type (load_result chunk v) (type_of_chunk chunk).
 Proof.
   intros. destruct chunk; destruct v; simpl; auto. apply Float.singleoffloat_is_single.
+(* SIMD *)
+  case (vec_typ_eq v0 t); intro H; simpl; auto.
+(* eSIMD *)
 Qed.
 
 Lemma load_result_same:
   forall v ty, has_type v ty -> load_result (chunk_of_type ty) v = v.
 Proof.
   unfold has_type; intros. destruct v; destruct ty; try contradiction; auto.
-  simpl. rewrite Float.singleoffloat_of_single; auto. 
+  simpl. rewrite Float.singleoffloat_of_single; auto.
+(* SIMD *)
+  rewrite <- H; clear H; destruct t; auto.
+(* eSIMD *) 
 Qed.
 
 (** Theorems on arithmetic operations. *)
@@ -1389,8 +1425,6 @@ Inductive val_inject (mi: meminj): val -> val -> Prop :=
       forall i, val_inject mi (Vint i) (Vint i)
   | val_inject_long:
       forall i, val_inject mi (Vlong i) (Vlong i)
-  | val_inject_int128:
-      forall i, val_inject mi (V128 i) (V128 i)
   | val_inject_float:
       forall f, val_inject mi (Vfloat f) (Vfloat f)
   | val_inject_ptr:
@@ -1398,6 +1432,8 @@ Inductive val_inject (mi: meminj): val -> val -> Prop :=
       mi b1 = Some (b2, delta) ->
       ofs2 = Int.add ofs1 (Int.repr delta) ->
       val_inject mi (Vptr b1 ofs1) (Vptr b2 ofs2)
+  | val_inject_vec:
+      forall t v, val_inject mi (Vvec t v) (Vvec t v)
   | val_inject_undef: forall v,
       val_inject mi Vundef v.
 
@@ -1421,7 +1457,10 @@ Lemma val_load_result_inject:
   val_inject f v1 v2 ->
   val_inject f (Val.load_result chunk v1) (Val.load_result chunk v2).
 Proof.
-  intros. inv H; destruct chunk; simpl; econstructor; eauto.
+  intros. inv H; destruct chunk; simpl; try econstructor; eauto.
+(* SIMD *)
+  case (vec_typ_eq v0 t); auto.
+(* eSIMD *)
 Qed.
 
 Remark val_add_inject:

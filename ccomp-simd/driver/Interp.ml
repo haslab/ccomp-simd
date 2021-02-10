@@ -48,6 +48,7 @@ let print_eventval p = function
   | EVfloat f -> fprintf p "%F" (camlfloat_of_coqfloat f)
   | EVfloatsingle f -> fprintf p "%F" (camlfloat_of_coqfloat f)
   | EVlong n -> fprintf p "%LdLL" (camlint64_of_coqint n)
+  | EVvec (_,n) -> fprintf p "%LdLL" (camlint64_of_coqint n)
   | EVptr_global(id, ofs) -> fprintf p "&%a" print_id_ofs (id, ofs)
 
 let print_eventval_list p = function
@@ -61,7 +62,7 @@ let print_event p = function
       fprintf p "extcall %s(%a) -> %a"
                 (extern_atom id)
                 print_eventval_list args
-                print_eventval res
+                print_eventval_list res
   | Event_vload(chunk, id, ofs, res) ->
       fprintf p "volatile load %s[&%s%+ld] -> %a"
                 (PrintAST.name_of_chunk chunk)
@@ -139,7 +140,7 @@ let print_state p (prog, ge, s) =
   | Returnstate(res, k, m) ->
       PrintCsyntax.print_pointer_hook := print_pointer ge Maps.PTree.empty;
       fprintf p "returning@ %a"
-              print_val res
+              print_val_list res
   | Stuckstate ->
       fprintf p "stuck after an undefined expression"
 
@@ -380,14 +381,14 @@ let do_printf m fmt args =
 
 let (>>=) opt f = match opt with None -> None | Some arg -> f arg
 
-let do_external_function id imms sg ge w args m =
+let do_external_function id sg ge w args m =
   match extern_atom id, args with
   | "printf", Vptr(b, ofs) :: args' ->
       extract_string m b ofs >>= fun fmt ->
       print_string (do_printf m fmt args');
       flush stdout;
       Cexec.list_eventval_of_val ge args sg.sig_args >>= fun eargs ->
-      Some(((w, [Event_syscall(id, eargs, EVint Int.zero)]), Vint Int.zero), m)
+      Some(((w, [Event_syscall(id, eargs, EVint Int.zero::[])]), (Vint Int.zero)::[]), m)
   | _ ->
       None
 
@@ -622,7 +623,7 @@ let rec find_main_function name = function
 let fixup_main p =
   match find_main_function p.prog_main p.prog_defs with
   | None ->
-      fprintf err_formatter "ERROR: no main() function";
+      fprintf err_formatter "ERROR: no main() function@.";
       None
   | Some main_fd ->
       match type_of_fundef main_fd with
@@ -632,7 +633,7 @@ let fixup_main p =
                   Tint _, _) as ty ->
           Some (change_main_function p p.prog_main ty)
       | _ ->
-          fprintf err_formatter "ERROR: wrong type for main() function";
+          fprintf err_formatter "ERROR: wrong type for main() function@.";
           None
 
 (* Execution of a whole program *)
@@ -643,17 +644,17 @@ let execute prog =
   pp_set_max_indent p 30;
   pp_set_max_boxes p 10;
   match fixup_main prog with
-  | None -> ()
+  | None -> exit 126
   | Some prog1 ->
       let wprog = world_program prog1 in
       let wge = Genv.globalenv wprog in
       match Genv.init_mem wprog with
       | None ->
-          fprintf p "ERROR: World memory state undefined@."
+          fprintf p "ERROR: World memory state undefined@."; exit 126
       | Some wm ->
       match Cexec.do_initial_state prog1 with
       | None ->
-          fprintf p "ERROR: Initial state undefined@."
+          fprintf p "ERROR: Initial state undefined@."; exit 126
       | Some(ge, s) ->
           match !mode with
           | First | Random ->

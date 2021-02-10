@@ -92,6 +92,13 @@ let attr_array_applicable = function
   | AConst | AVolatile | ARestrict | AAlignas _ -> false
   | Attr _ -> true
 
+(* Is an attribute of a composite type applicable to members of this type
+  when they are accessed? *)
+
+let attr_inherited_by_members = function
+  | AConst | AVolatile | ARestrict -> true
+  | AAlignas _ | Attr _ -> false
+
 (* Adding top-level attributes to a type.  Doesn't need to unroll defns. *)
 (* For array types, standard attrs are pushed to the element type. *)
 
@@ -176,13 +183,6 @@ let alignas_attribute al =
   | a :: al -> alignas_attr accu al
   in alignas_attr 0 al
 
-(* Extracting vectorsize value from a set of attributes.  Return 0 if none. *)
-
-let vectorsize_attribute attrs =
-  match find_custom_attributes ["vector_size";"__vector_size__"] attrs with
-  | [[AInt n]] -> Int64.to_int n
-  | _ -> 0
-
 (* Type compatibility *)
 
 exception Incompat
@@ -214,7 +214,6 @@ let combine_types ?(noattrs = false) env t1 t2 =
         end
     | _ -> () in
 
-  (* compcert-simd remark: vectorsize attribute is always taken in consideration! *)
   let rec comp t1 t2 =
     match t1, t2 with
     | TVoid a1, TVoid a2 ->
@@ -222,13 +221,9 @@ let combine_types ?(noattrs = false) env t1 t2 =
     | TVecdata a1, TVecdata a2 ->
         TVecdata(comp_attr a1 a2)
     | TInt(ik1, a1), TInt(ik2, a2) ->
-        if vectorsize_attribute a1 = vectorsize_attribute a2
-        then TInt(comp_base ik1 ik2, comp_attr a1 a2)
-	else raise Incompat
+        TInt(comp_base ik1 ik2, comp_attr a1 a2)
     | TFloat(fk1, a1), TFloat(fk2, a2) ->
-        if vectorsize_attribute a1 = vectorsize_attribute a2
-        then TFloat(comp_base fk1 fk2, comp_attr a1 a2)
-	else raise Incompat
+        TFloat(comp_base fk1 fk2, comp_attr a1 a2)
     | TPtr(ty1, a1), TPtr(ty2, a2) ->
         TPtr(comp ty1 ty2, comp_attr a1 a2)
     | TArray(ty1, sz1, a1), TArray(ty2, sz2, a2) ->
@@ -314,11 +309,7 @@ let rec alignof env t =
   match t with
   | TVoid _ -> !config.alignof_void
   | TVecdata _ -> Some !config.alignof_vecdata
-  | TInt(ik, a)
-       when vectorsize_attribute a > 0 -> Some (vectorsize_attribute a)
   | TInt(ik, _) -> Some(alignof_ikind ik)
-  | TFloat(fk, a)
-       when vectorsize_attribute a > 0 -> Some (vectorsize_attribute a)
   | TFloat(fk, _) -> Some(alignof_fkind fk)
   | TPtr(_, _) -> Some(!config.alignof_ptr)
   | TArray(ty, _, _) -> alignof env ty
@@ -378,11 +369,7 @@ let rec sizeof env t =
   match t with
   | TVoid _ -> !config.sizeof_void
   | TVecdata _ -> Some !config.sizeof_vecdata
-  | TInt(ik, a) when vectorsize_attribute a > 0 ->
-     Some (vectorsize_attribute a)
   | TInt(ik, _) -> Some(sizeof_ikind ik)
-  | TFloat(fk, a) when vectorsize_attribute a > 0 ->
-     Some (vectorsize_attribute a)
   | TFloat(fk, _) -> Some(sizeof_fkind fk)
   | TPtr(_, _) -> Some(!config.sizeof_ptr)
   | TArray(ty, None, _) -> None
@@ -401,30 +388,6 @@ let rec sizeof env t =
   | TUnion(name, _) ->
       let ci = Env.find_union env name in ci.ci_sizeof
   | TEnum(_, _) -> Some(sizeof_ikind enum_ikind)
-
-(* Compute the base type of a vector (unchanged if non-vector). *)
-let vector_basetype t =
-  match t with
-  | TInt (ik, a) -> TInt (ik, remove_custom_attributes 
-				["vector_size";"__vector_size__"] a)
-  | TFloat (fk, a) -> TFloat (fk, remove_custom_attributes
-				    ["vector_size";"__vector_size__"] a)
-  | _ -> t
-
-(* Compute the vector size of a type (0 if non-vector). *)
-let vector_size t =
-  match t with
-  | TInt (ik, a) -> vectorsize_attribute a
-  | TFloat (fk, a) -> vectorsize_attribute a
-  | TVecdata _ -> !config.sizeof_vecdata
-  | _ -> 0
-
-(* Compute the number of elements in a vector. *)
-let vector_components t =
-  match t with
-  | TInt (ik, a) -> vectorsize_attribute a / sizeof_ikind ik
-  | TFloat (fk, a) -> vectorsize_attribute a / sizeof_fkind fk
-  | _ -> 0
 
 (* Compute the size of a union.
    It is the size is the max of the sizes of fields.    
@@ -593,6 +556,171 @@ let is_function_type env t =
   | TFun _ -> true
   | _ -> false
 
+let is_vararg_function_type env t =
+  match unroll env t with
+  | TFun(_,_,true,_) -> true
+  | _ -> false
+
+let is_float_type env t =
+  match unroll env t with
+  | TFloat(_,_) -> true
+  | _ -> false
+
+let is_vec_type env t =
+  match unroll env t with
+  | TVecdata _ -> true
+  | _ -> false
+
+(* Detection of homogeneous float/vec aggregates *)
+let rec homfstruct_basetype env = function
+  | TStruct(id,_) -> 
+     let ci = Env.find_struct env id in
+     begin match ci.ci_members with
+     | [] -> None
+     | fl::_ ->  homfstruct_basetype env (unroll env fl.fld_typ)
+     end
+  | t -> 
+     let ty = unroll env t in
+     begin match ty with
+     | TVecdata _ | TFloat _ -> Some ty
+     | TArray(typ, Some s, _) ->
+	let size = Int64.to_int s in
+	if 0 < size then homfstruct_basetype env (unroll env typ) else None
+     | _ -> None
+     end
+
+let homfstruct_chk env t =
+  let rec chkfields bt = function
+    | [] -> Some 0
+    | fl::lf -> match unroll env fl.fld_typ with
+		| TArray(typ,Some s,_) ->
+		   let size = Int64.to_int s in
+		   if unroll env typ = bt && 0 < size
+		      && size <= (!config).homfstruct_size
+		   then begin match chkfields bt lf with
+		        | Some n -> Some (n+size)
+			| _ -> None
+			end
+		   else None
+		| TStruct (id,_) ->
+		   let ci = Env.find_struct env id in
+		   begin match chkfields bt ci.ci_members with
+		   | Some n1 -> begin match chkfields bt lf with
+ 			        | Some n -> Some (n1+n)
+				| _ -> None
+				end
+		   | None -> None
+		   end
+		| t -> if t = bt
+		       then begin match chkfields bt lf with
+			    | Some n -> Some (n+1)
+			    | _ -> None
+			    end
+		       else None
+  in match unroll env t with
+     | TStruct(id,a) -> 
+	let ci = Env.find_struct env id in
+	begin match homfstruct_basetype env (TStruct(id,a)) with
+	| Some bt -> begin match chkfields bt ci.ci_members with
+		     | Some n -> if n <= (!config).homfstruct_size
+				 then Some (bt,n)
+				 else None
+		     | None -> None
+		     end
+	| _ -> None
+	end
+     | _ -> None
+
+(** [homfstruct_check] checks if a type is a homogeneous structure.
+   If the HA test succeeds, it returns the base type and selection
+   expressions for all the fields of the HA.                       *)
+let homfstruct_check env t =
+  let const i = {edesc=EConst (CInt(Int64.of_int i,IInt, string_of_int i))
+		;etyp=TInt(IInt,[])} in
+  let rec aelems ty n i = if i<n
+			  then (fun e->{edesc=EBinop(Oindex,e,const i,ty)
+				       ;etyp=ty})
+			       :: aelems ty n (i+1)
+			  else [] in
+  let rec mapfield f = function
+    | [] -> []
+    | x::xs -> (fun e -> x {edesc=EUnop(Odot(f.fld_name),e)
+		           ;etyp=f.fld_typ})
+	       :: mapfield f xs in
+  let rec chkfields bt = function
+    | [] -> Some []
+    | fl::lf -> 
+       match unroll env fl.fld_typ with
+       | TArray(typ,Some s,_) ->
+	  let ty = unroll env typ
+	  and size = Int64.to_int s in
+	  if ty = bt && 0 < size
+	     && size <= (!config).homfstruct_size
+	  then begin match chkfields bt lf with
+	       | Some l ->
+		  let elems = aelems bt size 0 in
+(*
+		  let ids = List.map (fun _->Env.fresh_ident 
+					       ("_"^fl.fld_name),bt)
+				     elems in
+ *)
+		  Some (mapfield fl elems @ l)
+	       | _ -> None
+	       end
+	  else None
+       | TStruct (id,_) ->
+	  let ci = Env.find_struct env id in
+	  begin match chkfields bt ci.ci_members with
+	  | Some l1 ->
+	     begin match chkfields bt lf with
+ 	     | Some l ->
+		Some (mapfield fl l1@l)
+	     | _ -> None
+	     end
+	  | None -> None
+	  end
+       | t -> if t = bt
+	      then begin match chkfields bt lf with
+                   | Some l ->
+		      Some (mapfield fl [fun x->x] @ l)
+		   | _ -> None
+		   end
+	      else None
+  in match unroll env t with
+     | TStruct(id,a) -> 
+	let ci = Env.find_struct env id in
+	begin match homfstruct_basetype env (TStruct(id,a)) with
+	| Some bt -> begin match chkfields bt ci.ci_members with
+		     | Some l -> 
+			if List.length l <= (!config).homfstruct_size
+			then Some (bt,l)
+			else None
+		     | None -> None
+		     end
+	| _ -> None
+	end
+     | _ -> None
+
+
+let is_homfstruct_type env t = not(homfstruct_check env t = None)
+(*
+  let rec chkfields ft = function
+    | [] -> true
+    | fl::lf -> ft=fl.fld_typ && chkfields ft lf
+  in match unroll env t with
+    | TStruct(id,_) -> 
+       let ci = Env.find_struct env id in
+       begin
+	 match ci.ci_members with
+	 | [] -> false
+	 | fl::lf -> (is_float_type env fl.fld_typ
+		      || is_vec_type env fl.fld_typ)
+		     && List.length lf < (!config).homfstruct_size 
+		     && chkfields fl.fld_typ lf
+       end
+    | _ -> false
+ *)
+
 (* Ranking of integer kinds *)
 
 let integer_rank = function
@@ -626,17 +754,20 @@ let unary_conversion env t =
   | TInt(kind, attr) ->
       begin match kind with
       | IBool | IChar | ISChar | IUChar | IShort | IUShort ->
-          TInt(IInt, attr)
+          TInt(IInt, [])
       | IInt | IUInt | ILong | IULong | ILongLong | IULongLong ->
-          TInt(kind, attr)
+          TInt(kind, [])
       end
   (* Enums are like signed ints *)
-  | TEnum(id, attr) -> TInt(enum_ikind, attr)
+  | TEnum(id, attr) -> TInt(enum_ikind, [])
   (* Arrays and functions decay automatically to pointers *)
   | TArray(ty, _, _) -> TPtr(ty, [])
   | TFun _ as ty -> TPtr(ty, [])
-  (* Other types are not changed *)
-  | t -> t
+  (* Float types and pointer types lose their attributes *)
+  | TFloat(kind, attr) -> TFloat(kind, [])
+  | TPtr(ty, attr) -> TPtr(ty, [])
+  (* Other types should not occur, but in doubt... *)
+  | _ -> t
 
 (* The usual binary conversions  (H&S 6.3.4).
    Applies only to arithmetic types.
@@ -794,9 +925,10 @@ let valid_assignment_attr afrom ato =
 
 let valid_assignment env from tto =
   match pointer_decay env from.etyp, pointer_decay env tto with
-  | (TInt _ | TFloat _ | TEnum _ | TVecdata _) as t1,
-    ((TInt _ | TFloat _ | TEnum _ | TVecdata _) as t2) -> 
-     vector_size t1 = vector_size t2
+  (* between vec types *)
+  | TVecdata _ , TVecdata _ -> true
+  | (TInt _ | TFloat _ | TEnum _ ),
+    ((TInt _ | TFloat _ | TEnum _ )) -> true
   | TInt _, TPtr _ -> is_literal_0 from
   | TPtr(ty, _), TPtr(ty', _) ->
       valid_assignment_attr (attributes_of_type env ty)
@@ -815,15 +947,15 @@ let valid_cast env tfrom tto =
   compatible_types ~noattrs:true env tfrom tto ||
   begin match unroll env tfrom, unroll env tto with
   | _, TVoid _ -> true
+  (* between vec types *)
+  | TVecdata _ , TVecdata _ -> true  
   (* from any int-or-pointer (with array and functions decaying to pointers)
      to any int-or-pointer *)
-  | (TInt _ | TPtr _ | TArray _ | TFun _ | TEnum _) as t1,
-    ((TInt _ | TPtr _ | TEnum _) as t2) ->
-     vector_size t1 = vector_size t2
+  | (TInt _ | TPtr _ | TArray _ | TFun _ | TEnum _),
+    ((TInt _ | TPtr _ | TEnum _)) -> true
   (* between int and float types *)
-  | (TInt _ | TFloat _ | TEnum _ | TVecdata _) as t1,
-    ((TInt _ | TFloat _ | TEnum _ | TVecdata _) as t2) -> 
-     vector_size t1 = vector_size t2
+  | (TInt _ | TFloat _ | TEnum _),
+    ((TInt _ | TFloat _ | TEnum _)) -> true
   | _, _ -> false
   end
 
@@ -898,4 +1030,42 @@ let printloc oc (filename, lineno) =
 let formatloc pp (filename, lineno) =
   if filename <> "" then Format.fprintf pp "%s:%d: " filename lineno
 
+(* Generate the default initializer for the given type *)
+
+let rec default_init env ty =
+  match unroll env ty with
+  | TInt _ | TEnum _ ->
+      Init_single (intconst 0L IInt)
+  | TFloat(fk, _) ->
+      Init_single floatconst0
+  | TPtr(ty, _) ->
+      Init_single nullconst
+  | TArray(ty, sz, _) ->
+      Init_array []
+  | TStruct(id, _) ->
+      let rec default_init_fields = function
+      | [] -> []
+      | f1 :: fl ->
+          if f1.fld_name = ""
+          then default_init_fields fl
+          else (f1, default_init env f1.fld_typ) :: default_init_fields fl in
+      let ci = Env.find_struct env id in
+      Init_struct(id, default_init_fields ci.ci_members)
+  | TUnion(id, _) ->
+      let ci = Env.find_union env id in
+      begin match ci.ci_members with
+      | [] -> assert false
+      | fld :: _ -> Init_union(id, fld, default_init env fld.fld_typ)
+      end
+  | TVecdata _ ->
+    Init_single (intconst 0L IInt)
+  | _ ->
+        let mys =
+              let b = Buffer.create 20 in
+              let fb = Format.formatter_of_buffer b in
+                Cprint.typ fb ty;
+                Format.pp_print_flush fb ();
+                Buffer.contents b 
+          in printf "%s\n" mys;
+            assert false
 

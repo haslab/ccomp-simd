@@ -127,7 +127,7 @@ let rec dcl pp ty n =
   | TVoid a ->
       fprintf pp "void%a%t" attributes a n
   | TVecdata a ->
-      fprintf pp "t128%a%t" attributes a n
+      fprintf pp "__builtin_t128%a%t" attributes a n
   | TInt(k, a) ->
       fprintf pp "%s%a%t" (name_of_ikind k) attributes a n
   | TFloat(k, a) ->
@@ -344,7 +344,7 @@ let rec init pp = function
       List.iter (fun (fld, i) -> fprintf pp "%a,@ " init i) il;
       fprintf pp "}@]"
   | Init_union(id, fld, i) ->
-      fprintf pp "@[<hov 1>{%a}@]" init i
+      fprintf pp "@[<hov 2>{.%s =@ %a}@]" fld.fld_name init i
 
 let simple_decl pp (id, ty) =
   dcl pp ty (fun pp -> fprintf pp " %a" ident id)

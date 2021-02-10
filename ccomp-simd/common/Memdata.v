@@ -23,6 +23,9 @@ Require Import Integers.
 Require Import Floats.
 Require Import Values.
 
+(** comcert-simd: vector support is Arch-dependent *)
+Require Import Archi.
+
 (** * Properties of memory chunks *)
 
 (** Memory reads and writes are performed by quantities called memory chunks,
@@ -37,15 +40,15 @@ Definition size_chunk (chunk: memory_chunk) : Z :=
   | Mint16unsigned => 2
   | Mint32 => 4
   | Mint64 => 8
-  | Mint128 => 16
   | Mfloat32 => 4
   | Mfloat64 => 8
+  | Mvec t => 4 * Archi.vec_typesize t
   end.
 
 Lemma size_chunk_pos:
   forall chunk, size_chunk chunk > 0.
 Proof.
-  intros. destruct chunk; simpl; omega.
+  intros. destruct chunk; simpl; try omega.
 Qed.
 
 Definition size_chunk_nat (chunk: memory_chunk) : nat :=
@@ -84,22 +87,25 @@ Definition align_chunk (chunk: memory_chunk) : Z :=
   | Mint16signed => 2
   | Mint16unsigned => 2
   | Mint32 => 4
-  | Mint64 => 8
-  | Mint128 => 16
+  | Mint64 => Archi.align_int64
   | Mfloat32 => 4
-  | Mfloat64 => 4
+  | Mfloat64 => Archi.align_float64
+  | Mvec t => Archi.vec_align_chunk t
   end.
 
 Lemma align_chunk_pos:
   forall chunk, align_chunk chunk > 0.
 Proof.
-  intro. destruct chunk; simpl; omega.
+  intro. destruct chunk; simpl; try omega.
+(* SIMD *)
+  apply vec_align_chunk_pos.
 Qed.
 
 Lemma align_size_chunk_divides:
   forall chunk, (align_chunk chunk | size_chunk chunk).
 Proof.
-  intros. destruct chunk; simpl; try apply Zdivide_refl; exists 2; auto. 
+  intros. destruct chunk; simpl; try apply Zdivide_refl. 
+  exists 2; auto. 
 Qed.
 
 Lemma align_le_divides:
@@ -107,12 +113,11 @@ Lemma align_le_divides:
   align_chunk chunk1 <= align_chunk chunk2 -> (align_chunk chunk1 | align_chunk chunk2).
 Proof.
   intros. destruct chunk1; destruct chunk2; simpl in *;
-  solve [ omegaContradiction
+  solve [ unfold vec_align_chunk in *; omegaContradiction
         | apply Zdivide_refl
         | exists 2; reflexivity
         | exists 4; reflexivity
-        | exists 8; reflexivity
-        | exists 16; reflexivity ].
+        | exists 8; reflexivity]. 
 Qed.
 
 (** * Memory values *)
@@ -242,12 +247,16 @@ Proof.
   decEq. apply Zmod_small. apply Int64.unsigned_range. apply Int64.repr_unsigned.
 Qed.
 
+(* SIMD *)
 Lemma decode_encode_int_16:
   forall x, Int128.repr (decode_int (encode_int 16 (Int128.unsigned x))) = x.
 Proof.
   intros. rewrite decode_encode_int. transitivity (Int128.repr (Int128.unsigned x)).
-  decEq. apply Zmod_small. apply Int128.unsigned_range. apply Int128.repr_unsigned.
+  decEq. apply Zmod_small. 
+  apply Int128.unsigned_range. 
+  apply Int128.repr_unsigned.
 Qed.
+(* eSIMD *)
 
 (** A length-[n] encoding depends only on the low [8*n] bits of the integer. *)
 
@@ -350,9 +359,12 @@ Definition encode_val (chunk: memory_chunk) (v: val) : list memval :=
   | Vint n, Mint32 => inj_bytes (encode_int 4%nat (Int.unsigned n))
   | Vptr b ofs, Mint32 => inj_pointer 4%nat b ofs
   | Vlong n, Mint64 => inj_bytes (encode_int 8%nat (Int64.unsigned n))
-  | V128 n, Mint128 => inj_bytes (encode_int 16%nat (Int128.unsigned n))
   | Vfloat n, Mfloat32 => inj_bytes (encode_int 4%nat (Int.unsigned (Float.bits_of_single n)))
   | Vfloat n, Mfloat64 => inj_bytes (encode_int 8%nat (Int64.unsigned (Float.bits_of_double n)))
+  | Vvec t v, Mvec t' => if vec_typ_eq t t'
+                         then inj_bytes (encode_int (size_chunk_nat chunk)
+                                                    (vec_intval v))
+                         else list_repeat (size_chunk_nat chunk) Undef
   | _, _ => list_repeat (size_chunk_nat chunk) Undef
   end.
 
@@ -366,9 +378,9 @@ Definition decode_val (chunk: memory_chunk) (vl: list memval) : val :=
       | Mint16unsigned => Vint(Int.zero_ext 16 (Int.repr (decode_int bl)))
       | Mint32 => Vint(Int.repr(decode_int bl))
       | Mint64 => Vlong(Int64.repr(decode_int bl))
-      | Mint128 => V128(Int128.repr(decode_int bl))
       | Mfloat32 => Vfloat(Float.single_of_bits (Int.repr (decode_int bl)))
       | Mfloat64 => Vfloat(Float.double_of_bits (Int64.repr (decode_int bl)))
+      | Mvec t => Vvec t (vec_repr(decode_int bl))
       end
   | None =>
       match chunk with
@@ -381,9 +393,14 @@ Lemma encode_val_length:
   forall chunk v, length(encode_val chunk v) = size_chunk_nat chunk.
 Proof.
   intros. destruct v; simpl; destruct chunk; 
-  solve [ reflexivity
+  try solve [ reflexivity
         | apply length_list_repeat
         | rewrite length_inj_bytes; apply encode_int_length ].
+(* SIMD *)
+  case (vec_typ_eq t v0);
+  solve [ intros H; rewrite H; apply length_inj_bytes
+        | intros _; apply length_list_repeat ].
+(* eSIMD *)
 Qed.
 
 Lemma check_inj_pointer:
@@ -407,23 +424,29 @@ Definition decode_encode_val (v1: val) (chunk1 chunk2: memory_chunk) (v2: val) :
   | Vint n, Mint16unsigned, Mint16unsigned => v2 = Vint(Int.zero_ext 16 n)
   | Vint n, Mint32, Mint32 => v2 = Vint n
   | Vint n, Mint32, Mfloat32 => v2 = Vfloat(Float.single_of_bits n)
-  | Vint n, (Mint64 | Mint128 | Mfloat32 | Mfloat64), _ => v2 = Vundef
+  | Vint n, (Mint64 | Mfloat32 | Mfloat64 | Mvec _), _ => v2 = Vundef
   | Vint n, _, _ => True (**r nothing meaningful to say about v2 *)
   | Vptr b ofs, Mint32, Mint32 => v2 = Vptr b ofs
   | Vptr b ofs, _, _ => v2 = Vundef
   | Vlong n, Mint64, Mint64 => v2 = Vlong n
   | Vlong n, Mint64, Mfloat64 => v2 = Vfloat(Float.double_of_bits n)
-  | Vlong n, (Mint8signed|Mint8unsigned|Mint16signed|Mint16unsigned|Mint32|Mint128|Mfloat32|Mfloat64), _ => v2 = Vundef
+  | Vlong n, (Mint8signed|Mint8unsigned|Mint16signed|Mint16unsigned|Mint32|Mfloat32|Mfloat64|Mvec _), _ => v2 = Vundef
   | Vlong n, _, _ => True (**r nothing meaningful to say about v2 *)
-  | V128 n, Mint128, Mint128 => v2 = V128 n
-  | V128 n, (Mint8signed|Mint8unsigned|Mint16signed|Mint16unsigned|Mint32|Mint64|Mfloat32|Mfloat64), _ => v2 = Vundef
-  | V128 n, _, _ => True
   | Vfloat f, Mfloat32, Mfloat32 => v2 = Vfloat(Float.singleoffloat f)
   | Vfloat f, Mfloat32, Mint32 => v2 = Vint(Float.bits_of_single f)
   | Vfloat f, Mfloat64, Mfloat64 => v2 = Vfloat f
-  | Vfloat f, (Mint8signed|Mint8unsigned|Mint16signed|Mint16unsigned|Mint32|Mint64|Mint128), _ => v2 = Vundef
+  | Vfloat f, (Mint8signed|Mint8unsigned|Mint16signed|Mint16unsigned|Mint32|Mint64|Mvec _), _ => v2 = Vundef
   | Vfloat f, Mfloat64, Mint64 => v2 = Vlong(Float.bits_of_double f)
   | Vfloat f, _, _ => True   (* nothing interesting to say about v2 *)
+  | Vvec t v, Mvec t1, Mvec t2 => if vec_typ_eq t t1 
+                                  then if vec_typ_eq t t2
+                                       then v2 = Vvec t v
+                                       else True
+                                  else v2 = Vundef
+  | Vvec t v, Mvec t1, _ => if vec_typ_eq t t1 
+                            then True
+                            else v2 = Vundef
+  | Vvec t v, _, _ => v2 = Vundef
   end.
 
 Remark decode_val_undef:
@@ -439,7 +462,7 @@ Proof.
 Opaque inj_pointer.
   intros.
   destruct v; destruct chunk1; simpl; try (apply decode_val_undef);
-  destruct chunk2; unfold decode_val; auto; try (rewrite proj_inj_bytes).
+  destruct chunk2; unfold decode_val; auto; try (case (vec_typ_eq _ _); intros H; auto); try (rewrite proj_inj_bytes).
   rewrite decode_encode_int_1. decEq. apply Int.sign_ext_zero_ext. omega.
   rewrite decode_encode_int_1. decEq. apply Int.zero_ext_idem. omega.
   rewrite decode_encode_int_1. decEq. apply Int.sign_ext_zero_ext. omega.
@@ -452,7 +475,6 @@ Opaque inj_pointer.
   rewrite decode_encode_int_4. auto.
   rewrite decode_encode_int_8. auto.
   rewrite decode_encode_int_8. auto.
-  rewrite decode_encode_int_16. auto.
   rewrite decode_encode_int_4. auto.
   rewrite decode_encode_int_4. decEq. apply Float.single_of_bits_of_single.
   rewrite decode_encode_int_8. auto.
@@ -461,6 +483,12 @@ Opaque inj_pointer.
   unfold proj_pointer. generalize (check_inj_pointer b i 4%nat).
 Transparent inj_pointer. 
   simpl. intros EQ; rewrite EQ; auto.
+(* SIMD *)
+  rewrite H; auto.
+  case (vec_typ_eq v0 v1); intros H1; auto.
+  unfold vec_repr; rewrite decode_encode_int_16; auto.
+  rewrite H1; auto.
+(* eSIMD *)
 Qed.
 
 Lemma decode_encode_val_similar:
@@ -473,6 +501,13 @@ Proof.
   intros until v2; intros TY SZ DE. 
   destruct chunk1; destruct chunk2; simpl in TY; try discriminate; simpl in SZ; try omegaContradiction;
   destruct v1; auto.
+  inv TY; inv SZ.
+  generalize DE; simpl.
+  unfold Val.load_result; case (vec_typ_eq t v0); intro H.
+   case (vec_typ_eq v0 t); intro H1; auto.
+   elim H1; rewrite H; auto.
+  intro H1; rewrite H1; case (vec_typ_eq v0 t); intro H2; auto.
+  elim H; auto.
 Qed.
 
 Lemma decode_val_type:
@@ -582,6 +617,11 @@ Proof.
   destruct v; auto; destruct chunk; simpl; auto; try (apply B; apply encode_int_length).
   constructor. red. auto.
   simpl; intros. intuition; subst mv; red; simpl; congruence.
+(* SIMD *)
+  case (vec_typ_eq t v0); intro H.
+   apply B; auto.
+  auto.
+(* eSIMD *)
 Qed.
 
 Lemma check_pointer_inv:
@@ -644,6 +684,9 @@ Proof.
   (apply A; assumption) ||
   (apply B; rewrite encode_int_length; congruence) || idtac.
   simpl. intros EQ; inv EQ; auto. 
+(* SIMD *)
+  case (vec_typ_eq t v0); intros H H1; inv H1.
+(* eSIMD *)
 Qed.
 
 Lemma decode_val_pointer_inv:
@@ -837,9 +880,12 @@ Proof.
   destruct chunk; apply inj_bytes_inject || apply repeat_Undef_inject_self.
   destruct chunk; apply inj_bytes_inject || apply repeat_Undef_inject_self.
   destruct chunk; apply inj_bytes_inject || apply repeat_Undef_inject_self.
-  destruct chunk; apply inj_bytes_inject || apply repeat_Undef_inject_self.
   destruct chunk; try (apply repeat_Undef_inject_self). 
   repeat econstructor; eauto. 
+(* SIMD *)
+  destruct chunk; try (case (vec_typ_eq _ _); intros H);
+  apply inj_bytes_inject || apply repeat_Undef_inject_self.
+(* eSIMD *)
   replace (size_chunk_nat chunk) with (length (encode_val chunk v2)).
   apply repeat_Undef_inject_any. apply encode_val_length. 
 Qed.

@@ -45,6 +45,25 @@ open IRC
 open XTL
 
 open CXBuiltins
+open Builtindata
+
+let builtin_name ef = 
+  match ef with
+  | EF_builtin(n,_,_) -> extern_atom n
+  | _ -> ""
+
+let list_take n l =
+  let rec loop n = function
+    | h :: t when n > 0 ->
+      h::loop (n - 1) t
+    | _ -> []
+  in loop n l
+
+let list_take_drop n l =
+  let rec loop n = function
+    | h :: t when n > 0 -> let (a,b) = loop (n - 1) t in (h::a,b)
+    | l -> ([],l)
+  in loop n l
 
 (* Detection of 2-address operations *)
 
@@ -55,16 +74,73 @@ let is_two_address op args =
     | arg1 :: argl -> Some(arg1, argl)
   else None
 
-let is_two_address_builtin ef args =
+let is_twoaddr_builtin ef args res =
   match ef with
-  | EF_builtin (id,_,_) ->
-     (match simd_builtin_find id with
-      | Some blt -> if blt.btwoaddr
-        then 
-          (match args with x::xs -> Some (x,xs) | _ -> None)
-        else None
-      | _ -> None)
+  | EF_builtin(id,blt,s) ->
+     begin match blt with
+     | None -> None
+     | Some bdata ->
+	if bdata.blt_twoaddr
+	then let (args1,argsr) = list_take_drop (List.length res) args in
+	     Some (args1, argsr)
+	else None
+     end
+(*
+     begin
+      try let blt = Hashtbl.find CXBuiltins.simd_builtin_functions id in
+	  let (args1,argsr) = list_take_drop blt.btwoaddr args in
+	  if args1<>[] then Some (args1,argsr) else None
+      with Not_found -> None
+     end
+ *)
   | _ -> None
+
+let destroyed_by_builtin_aux ef =
+  let rec regofstr s =
+    match Machregsaux.register_by_name s with
+    | None -> assert false
+    | Some r -> r in
+  match ef with
+  | EF_builtin(id,bdata,s) ->
+     begin match bdata with
+     | None -> destroyed_by_builtin ef
+     | Some bdata -> begin match bdata.blt_destr with
+		     | Some l -> List.map regofstr l
+		     | _ -> []
+		     end
+     end
+  | _ -> []
+
+let mregs_for_builtin_aux ef =
+  let rec nthreg n l =
+    match l with
+    | [] -> assert false
+    | (x::xx) -> if n<=0 then Some x else nthreg (n-1) xx in
+  let rregs = [R0;R1;R2]
+  and fregs = [F0;F1;F2;F3;F4;F5;F6;F7;F8;F9] in
+  let rec getregs c1 c2 l =
+    match l with
+    | [] -> []
+    | (x::xx) -> begin match x with
+		 | Tint -> (nthreg c1 rregs)::getregs (c1+1) c2 xx
+		 | Tlong -> (nthreg c1 rregs)::(nthreg (c1+1) rregs)::
+			      getregs (c1+2) c2 xx
+		 | Tfloat -> (nthreg c2 fregs)::getregs c1 (c2+1) xx
+		 | Tsingle -> (nthreg c2 fregs)::getregs c1 (c2+1) xx
+		 | Tvec () -> (nthreg c2 fregs)::(nthreg (c2+1) fregs)::
+				getregs c1 (c2+2) xx
+		 end in
+  match ef with
+  | EF_builtin(id,bdata,s) ->
+     begin match bdata with
+	   | None -> mregs_for_builtin ef
+	   | Some bdata -> begin match bdata.blt_destr with
+				 | None -> ([],[])
+				 | Some _ -> (getregs 0 0 s.sig_args
+					     ,getregs 0 0 s.sig_res)
+			   end
+     end
+  | _ -> ([],[])
 
 (* For tracing *)
 
@@ -78,6 +154,7 @@ let init_trace () =
     | Some f -> pp := open_out f
   end
 
+
 (**************** Initial conversion from RTL to XTL **************)
 
 let vreg tyenv r = V(r, tyenv r)
@@ -89,6 +166,7 @@ let rec expand_regs tyenv = function
   | r :: rl ->
       match tyenv r with
       | Tlong -> V(r, Tint) :: V(twin_reg r, Tint) :: expand_regs tyenv rl
+      | Tvec () -> V(offset_reg r 0, Tfloat) :: V(offset_reg r 1, Tfloat) :: expand_regs tyenv rl
       | ty    -> V(r, ty) :: expand_regs tyenv rl
 
 let constrain_reg v c =
@@ -113,16 +191,54 @@ let rec movelist vl1 vl2 k =
   | _, _ -> assert false
 
 let xparmove srcs dsts k =
-  assert (List.length srcs = List.length dsts);
+  (*assert (List.length srcs = List.length dsts);*)
   match srcs, dsts with
-  | [], [] -> k
-  | [src], [dst] -> Xmove(src, dst) :: k
-  | _, _ -> Xparmove(srcs, dsts, new_temp Tint, new_temp Tfloat) :: k
+  | _, [] -> k
+  | src::_, [dst] -> Xmove(src, dst) :: k
+  | _, _ -> 
+     assert (List.length srcs >= List.length dsts);
+     Xparmove(list_take (List.length dsts) srcs, dsts, new_temp Tint, new_temp Tfloat) :: k
 
 (* Return the XTL basic block corresponding to the given RTL instruction.
    Move and parallel move instructions are introduced to honor calling
    conventions and register constraints on some operations.
    64-bit integer variables are split in two 32-bit halves. *)
+
+let is_move_builtin ef args res s =
+  match ef with
+  | EF_builtin(id,_,_) -> 
+     (*printf "%s" (extern_atom id);*)
+     if id = intern_string "__builtin_vget_low"
+     then begin match args,res with
+		| [arg], [r] -> Some [Xmove(V(offset_reg arg 0,Tfloat),
+					    V(r, Tfloat))
+				     ;Xbranch s]
+		| _ -> assert false;
+	  end
+     else if id = intern_string "__builtin_vget_high"
+     then begin match args,res with
+		| [arg], [r] -> Some [Xmove(V(offset_reg arg 1,Tfloat),
+					    V(r, Tfloat))
+				     ;Xbranch s]
+		| _ -> assert false;
+	  end
+     else if id = intern_string "__builtin_vcombine"
+     then begin match args,res with
+		| [arg1;arg2], [r] -> Some [Xmove(V(arg1, Tfloat),
+						  V(offset_reg r 0,Tfloat))
+					   ;Xmove(V(arg2, Tfloat),
+						  V(offset_reg r 1,Tfloat))
+					   ;Xbranch s]
+		| _ -> assert false;
+	  end
+(*
+     else if id = intern_string "__builtin_vset_low"
+     then []
+     else if id = intern_string "__builtin_vset_high"
+     then []
+ *)
+     else None
+  | _ -> None
 
 let block_of_RTL_instr funsig tyenv = function
   | RTL.Inop s ->
@@ -132,7 +248,11 @@ let block_of_RTL_instr funsig tyenv = function
         [Xmove(V(arg, Tint), V(res, Tint));
          Xmove(V(twin_reg arg, Tint), V(twin_reg res, Tint));
          Xbranch s]
-      else
+      else if tyenv arg = Tvec () then
+	[Xmove(V(offset_reg arg 0, Tfloat), V(offset_reg res 0, Tfloat));
+	 Xmove(V(offset_reg arg 1, Tfloat), V(offset_reg res 1, Tfloat));
+	 Xbranch s]
+      else	
         [Xmove(vreg tyenv arg, vreg tyenv res); Xbranch s]
   | RTL.Iop(Omakelong, [arg1; arg2], res, s) ->
       [Xmove(V(arg1, Tint), V(res, Tint));
@@ -144,7 +264,9 @@ let block_of_RTL_instr funsig tyenv = function
       [Xmove(V(arg, Tint), V(res, Tint)); Xbranch s]
   | RTL.Iop(op, args, res, s) ->
       let (cargs, cres) = mregs_for_operation op in
-      let args1 = vregs tyenv args and res1 = vreg tyenv res in
+      let args1 = vregs tyenv args 
+      and res1 = vreg tyenv res
+      in
       let args2 = constrain_regs args1 cargs and res2 = constrain_reg res1 cres in
       let (args3, res3) =
         match is_two_address op args2 with
@@ -166,6 +288,15 @@ let block_of_RTL_instr funsig tyenv = function
              Xload(Mint32, addr', vregs tyenv args,
                    V((if Archi.big_endian then twin_reg dst else dst), Tint));
              Xbranch s]
+      end else if chunk = Mvec () then begin
+        match offset_addressing addr (coqint_of_camlint 8l) with
+        | None -> assert false
+        | Some addr' ->
+            [Xload(Mfloat64, addr, vregs tyenv args,
+                   V(offset_reg dst 0, Tfloat));
+             Xload(Mint32, addr', vregs tyenv args,
+                   V(offset_reg dst 1, Tfloat));
+             Xbranch s]
       end else
         [Xload(chunk, addr, vregs tyenv args, vreg tyenv dst); Xbranch s]
   | RTL.Istore(chunk, addr, args, src, s) ->
@@ -178,43 +309,79 @@ let block_of_RTL_instr funsig tyenv = function
              Xstore(Mint32, addr', vregs tyenv args,
                    V((if Archi.big_endian then twin_reg src else src), Tint));
              Xbranch s]
+      end else if chunk = Mvec () then begin
+        match offset_addressing addr (coqint_of_camlint 8l) with
+        | None -> assert false
+        | Some addr' ->
+            [Xstore(Mfloat64, addr, vregs tyenv args,
+                   V(offset_reg src 0, Tfloat));
+             Xstore(Mfloat64, addr', vregs tyenv args,
+                   V(offset_reg src 1, Tfloat));
+             Xbranch s]
       end else
         [Xstore(chunk, addr, vregs tyenv args, vreg tyenv src); Xbranch s]
   | RTL.Icall(sg, ros, args, res, s) ->
-      let args' = vlocs (loc_arguments sg)
-      and res' = vmregs (loc_result sg) in
-      xparmove (expand_regs tyenv args) args'
-       (Xcall(sg, sum_left_map (vreg tyenv) ros, args', res') ::
-         xparmove res' (expand_regs tyenv [res]) 
-           [Xbranch s])
+      (match (loc_result sg) with
+       | Some rr -> let args' = vlocs (loc_arguments sg)
+ 		    and res' = vmregs rr in
+ 		    xparmove (expand_regs tyenv args) args'
+		     (Xcall(sg, sum_left_map (vreg tyenv) ros, args', res')::
+                    xparmove res' (expand_regs tyenv res) 
+		     [Xbranch s])
+       | _ -> assert false)
   | RTL.Itailcall(sg, ros, args) ->
       let args' = vlocs (loc_arguments sg) in
       xparmove (expand_regs tyenv args) args'
         [Xtailcall(sg, sum_left_map (vreg tyenv) ros, args')]
   | RTL.Ibuiltin(ef, args, res, s) ->
-     let (cargs, cres) = mregs_for_builtin ef in
-     let args1 = expand_regs tyenv args and res1 = expand_regs tyenv [res] in
-     let args2 = constrain_regs args1 cargs and res2 = constrain_regs res1 cres in
-     let (args3, res3) =
-        match is_two_address_builtin ef args2 with
-        | None              -> (args2, res2)
-        | Some(arg, args2') -> 
-            (match res2 with
-             | [res2] -> if arg = res2 || not (List.mem res2 args2')
-                         then                                 (res2::args2', [res2])
-                         else let t = new_temp (tyenv res) in (t :: args2',  [t]   )
-             | _ -> assert false)
-             in
-             movelist args1 args3 (Xbuiltin(ef, args3, res3) :: movelist res3 res1 [Xbranch s])
+     begin
+      match is_move_builtin ef args res s with
+      | Some block -> block
+      | _ -> let (cargs, cres) = mregs_for_builtin_aux ef in
+	     let args1 = expand_regs tyenv args
+	     and res1 = expand_regs tyenv res in
+	     let args2 = constrain_regs args1 cargs
+	     and res2 = constrain_regs res1 cres in
+	     let (args3,res3) =
+	       let rec gentemps res argsi argsr =
+		 match res, argsi with
+		 | [], [] -> (argsr,[])
+		 | (r::res'), (a::argsi') ->
+		    let (aa,rr) = gentemps res' argsi' argsr in
+		    if r=a || not (List.mem r (argsi'@argsr))
+		    then (a::aa, r::rr)
+		    else let t=new_temp (typeof r) in (t::aa, t::rr)
+		 | _, _ -> printf "NOT ALL RESULTS TwoAddr in builtin %s\n" (builtin_name ef); assert false
+	       in match is_twoaddr_builtin ef args2 res2 with
+		  | None -> (args2,res2)
+		  | Some (argsi,argsr) -> 
+(*		     printf "TWO_ADDR (%s: %d)\n" (builtin_name ef) (List.length argsi);*)
+		     gentemps res2 argsi argsr
+	     in
+(*
+	     printf "%s:\n" (PrintAST.name_of_external ef);
+	     printf "args1= %a\n" PrintXTL.vars args1;
+	     printf "args3= %a\n" PrintXTL.vars args3;
+	     printf "res3= %a\n" PrintXTL.vars res3;
+	     printf "res1= %a\n" PrintXTL.vars res1;
+ *)
+	     movelist args1 args3
+		      (Xbuiltin(ef, args3, res3) ::
+			 movelist res3 res1 [Xbranch s])
+     end
   | RTL.Icond(cond, args, s1, s2) ->
       [Xcond(cond, vregs tyenv args, s1, s2)]
   | RTL.Ijumptable(arg, tbl) ->
       [Xjumptable(vreg tyenv arg, tbl)]
-  | RTL.Ireturn None ->
+  | RTL.Ireturn [] ->
       [Xreturn []]
-  | RTL.Ireturn (Some arg) ->
-      let args' = vmregs (loc_result funsig) in
-      xparmove (expand_regs tyenv [arg]) args' [Xreturn args']
+  | RTL.Ireturn (arg) ->
+      match (loc_result funsig) with
+      | Some rr -> let args' = vmregs rr in
+           xparmove (expand_regs tyenv arg) args' [Xreturn args']
+      | _ -> assert false
+(*      let args' = vmregs (loc_result funsig) in
+      xparmove (expand_regs tyenv [arg]) args' [Xreturn args']*)
 
 (* One above the [pc] nodes of the given RTL function *)
 
@@ -279,10 +446,18 @@ let live_before instr after =
   | Xreturn args ->
       vset_addlist args VSet.empty
 
+let rec live_size = function
+  | [] -> 0
+  | x::xs when typeof x = Tfloat || typeof x = Tsingle -> 1 + live_size xs
+  | _::xs -> live_size xs
+
 let rec live_before_block blk after =
   match blk with
   | [] -> after
-  | instr :: blk -> live_before instr (live_before_block blk after)
+  | instr :: blk -> 
+     let live = live_before instr (live_before_block blk after) in
+(*     printf "Lsize=%d\n" (live_size (VSet.elements live));*)
+     live
 
 let transfer_live f pc after =
   match PTree.get pc f.fn_code with
@@ -462,11 +637,19 @@ let spill_costs f =
 
 (********* Construction and coloring of the interference graph **************)
 
+let chkDReg v dest =
+  match v, dest with
+  | V(r1,_), V(r2,_) -> r1 <> r2 && r1 <> (offset_other r2)
+  | x, y -> x <> y
+
 let add_interfs_def g res live =
-  VSet.iter (fun v -> if v <> res then IRC.add_interf g v res) live
+  VSet.iter (fun v -> if v <> res then (IRC.add_interf g v res)) live
 
 let add_interfs_move g src dst live =
-  VSet.iter (fun v -> if v <> src && v <> dst then IRC.add_interf g v dst) live
+  (*printf "[%a=>%a]" PrintXTL.var src PrintXTL.var dst;*)
+  VSet.iter (fun v -> if (*v <> src && v <> dst *)
+		         chkDReg v src && chkDReg v dst
+		      then (IRC.add_interf g v dst)) live
 
 let add_interfs_destroyed g live mregs =
   List.iter
@@ -542,10 +725,23 @@ let add_interfs_instr g instr live =
       List.iter (add_interfs_live g across) res;
       (* All results must be pairwise different *)
       add_interfs_pairwise g res;
-      add_interfs_destroyed g across (destroyed_by_builtin ef);
-      begin match ef, args, res with
-      | EF_annot_val _, [arg], [res] -> IRC.add_pref g arg res (* like a move *)
-      | _ -> ()
+      add_interfs_destroyed g across (destroyed_by_builtin_aux ef);
+      begin match is_twoaddr_builtin ef args res with
+	    | None -> begin match ef, args, res with
+			    | EF_annot_val _, [arg], [res] ->
+			       IRC.add_pref g arg res (* like a move *)
+			    | _ -> ()
+		      end
+	    | Some (argsi,argsr) ->
+	       let rec f args res =
+		 match args, res with
+		 | [], [] -> ()
+		 | (a::aa), (r::rr) -> IRC.add_pref g a r;
+				       add_interfs_move g a r
+					 (vset_addlist (rr@aa@argsr) live);
+				       f aa rr
+		 | _, _ -> assert false
+	       in f argsi res
       end
   | Xbranch s ->
       ()
@@ -597,9 +793,11 @@ let tospill_instr alloc instr ts =
       then ts
       else VSet.add src (VSet.add dst ts)
   | Xreload(src, dst) ->
+(*      assert (is_reg alloc dst);*)
       assert (is_reg alloc dst);
       ts
   | Xspill(src, dst) ->
+(*      assert (is_reg alloc src);*)
       assert (is_reg alloc src);
       ts
   | Xparmove(srcs, dsts, itmp, ftmp) ->
@@ -669,7 +867,8 @@ let reload_var tospill eqs v =
         (*printf "Reusing %a for %a@ @." PrintXTL.var t PrintXTL.var v;*)
         (t, [], eqs)
     | None ->
-        let t = new_temp (typeof v) in (t, [Xreload(v, t)], add v t eqs)
+        let t = new_temp (typeof v) in 
+	(t, [Xreload(v, t)], add v t eqs)
 
 let rec reload_vars tospill eqs vl =
   match vl with
@@ -701,7 +900,7 @@ let rec save_vars tospill eqs vl =
    the reuse strategy and fall back to a naive "reload at every use"
    strategy. *)
 
-let max_age = ref 3
+let max_age = ref 0
 let max_num_eqs = ref 3
 
 let rec trim count eqs =
@@ -778,66 +977,47 @@ let spill_instr tospill eqs instr =
       (c1 @ [Xtailcall(sg, Coq_inl v', args)], [])
   | Xtailcall(sg, Coq_inr id, args) ->
       ([instr], [])
-(** NOTE : begin : spill for xbuiltin **)
-(*  | Xbuiltin(ef, args, res) ->*)
-(*      begin match ef with*)
-(*      | EF_annot _ ->*)
-(*          ([instr], eqs)*)
-(*      | _ ->*)
-(*          let (args', c1, eqs1) = reload_vars tospill eqs args in*)
-(*          let (res', c2, eqs2) = save_vars tospill eqs1 res in*)
-(*          (c1 @ Xbuiltin(ef, args', res') :: c2, eqs2)*)
-(*      end*)
-
-  | Xbuiltin(op, args, res) ->
-    begin match op with
-    | EF_annot _ -> ([instr], eqs)
-    | EF_builtin (id,_,_) ->
-            begin match is_two_address_builtin op args with
-            | None ->
-                let (args', c1, eqs1) = reload_vars tospill eqs args in
-                let (res', c2, eqs2) = save_vars tospill eqs1 res in
-                (c1 @ Xbuiltin(op, args', res') :: c2, eqs2)
-
-            | Some(arg1, argl) ->
-              begin match res with
-              | [] -> assert false
-              | res :: []-> (** NOTE : please check me **)
-                    begin match VSet.mem res tospill, VSet.mem arg1 tospill with
-                    | false, false ->
-                        let (argl', c1, eqs1) = reload_vars tospill eqs argl in
-                        (c1 @ [Xbuiltin(op, arg1 :: argl', [res])], kill res eqs1)
-
-                    | true, false ->
-                        let tmp = new_temp (typeof res) in
-                        let (argl', c1, eqs1) = reload_vars tospill eqs argl in
-                        (c1 @ [Xmove(arg1, tmp); Xbuiltin(op, tmp :: argl', [tmp]); Xspill(tmp, res)], 
-                         add res tmp (kill res eqs1))
-
-                    | false, true ->
-                        let eqs1 = add arg1 res (kill res eqs) in
-                        let (argl', c1, eqs2) = reload_vars tospill eqs1 argl in
-                        (Xreload(arg1, res) :: c1 @ [Xbuiltin(op, res :: argl', [res])],
-                         kill res eqs2)
-
-                    | true, true ->
-                        let tmp = new_temp (typeof res) in              
-                        let eqs1 = add arg1 tmp eqs in
-                        let (argl', c1, eqs2) = reload_vars tospill eqs1 argl in
-                        (Xreload(arg1, tmp) :: c1 @ [Xbuiltin(op, tmp :: argl', [tmp]); Xspill(tmp, res)],
-                         add res tmp (kill tmp (kill res eqs2)))
-                    end
-              | _ -> assert false
-              end
-            end
-
-    | _ -> let (args', c1, eqs1) = reload_vars tospill eqs args in
-           let (res', c2, eqs2) = save_vars tospill eqs1 res in
-           (c1 @ Xbuiltin(op, args', res') :: c2, eqs2)
-    end
-
-(** NOTE : end : spill for xbuiltin **)
-
+  | Xbuiltin(ef, args, res) ->
+      begin match is_twoaddr_builtin ef args res with
+      | None -> begin match ef with
+                | EF_annot _ ->
+		   ([instr], eqs)
+		| _ ->
+		   let (args', c1, eqs1) = reload_vars tospill eqs args in
+		   let (res', c2, eqs2) = save_vars tospill eqs1 res in
+		   (c1 @ Xbuiltin(ef, args', res') :: c2, eqs2)
+		end
+      | Some (argsi,argsr) ->
+(*	 printf "Spilling on twoaddr: %s\n" (builtin_name ef);*)
+	 let rec freload args res eqs =
+	   match args, res with
+	   | [], [] -> (reload_vars tospill eqs argsr, [], [])
+	   | (a::aa), (r::rr) ->
+	      let r' = if VSet.mem r tospill
+		      then new_temp (typeof r)
+		      else r in
+	      let eqs = if VSet.mem a tospill
+			then add a r' (kill r' eqs)
+			else eqs in
+	      let a' = if VSet.mem a tospill || VSet.mem r tospill
+		       then r'
+		       else a in
+	      let ((args', c', eqs'),res', s') = freload aa rr eqs in
+	      (a'::args',
+	       (if VSet.mem a tospill
+		then Xreload(a,r')::c'
+		else c'),
+	       let eqs1 = kill r' (kill r eqs) in
+	       if VSet.mem a tospill then add r r' eqs1 else eqs1
+	      ),
+	      r'::res',
+	      (if VSet.mem r tospill
+	       then s'@[Xspill(r',r)]
+	       else s')
+	   | _, _ -> assert false
+	 in let ((args',c',eqs'),res',s') = freload argsi res eqs
+	    in (c'@(Xbuiltin(ef,args',res')::s'), eqs')
+      end
   | Xbranch s ->
       ([instr], eqs)
   | Xcond(cond, args, s1, s2) ->
@@ -880,22 +1060,7 @@ let spill_function f tospill round =
 
 exception Bad_LTL
 
-let mreg_type_cast ty reg =
- match reg with
- | X0 -> (match ty with T128 -> Y0 | _ -> X0)
- | X1 -> (match ty with T128 -> Y1 | _ -> X1)
- | X2 -> (match ty with T128 -> Y2 | _ -> X2)
- | X3 -> (match ty with T128 -> Y3 | _ -> X3)
- | X4 -> (match ty with T128 -> Y4 | _ -> X4)
- | X5 -> (match ty with T128 -> Y5 | _ -> X5)
- | X6 -> (match ty with T128 -> Y6 | _ -> X6)
- | X7 -> (match ty with T128 -> Y7 | _ -> X7)
- | r -> r
-
-let mreg_of alloc v =
-  match alloc v with
-  | R mr -> mreg_type_cast (typeof v) mr
-  | S _ -> raise Bad_LTL
+let mreg_of alloc v = match alloc v with R mr -> mr | S _ -> raise Bad_LTL
 
 let mregs_of alloc vl = List.map (mreg_of alloc) vl
 
@@ -920,12 +1085,10 @@ let make_parmove srcs dsts itmp ftmp k =
   let n = Array.length src in
   assert (Array.length dst = n);
   let status = Array.make n To_move in
-  let temp_for ty =
-    match ty with
+  let temp_for = function 
     | Tint -> itmp
-    | (Tfloat|Tsingle|T128) -> mreg_type_cast ty ftmp 
-    | Tlong -> assert false 
-    in
+    | (Tfloat|Tsingle) -> ftmp 
+    | Tlong | Tvec () -> assert false in
   let code = ref [] in
   let add_move s d =
     match s, d with
@@ -993,12 +1156,25 @@ let transl_instr alloc instr k =
   | Xtailcall(sg, vos, args) ->
       LTL.Ltailcall(sg, mros_of alloc vos) :: []
   | Xbuiltin(ef, args, res) ->
-      begin match ef with
-      | EF_annot _ ->
-          LTL.Lannot(ef, List.map alloc args) :: k
-      | _ ->
-         LTL.Lbuiltin(ef, mregs_of alloc args, mregs_of alloc res) :: k
-      end
+     begin match ef with
+     | EF_annot _ ->
+	LTL.Lannot(ef, List.map alloc args) :: k
+     | _ -> let rargs = mregs_of alloc args
+	    and rres  = mregs_of alloc res in
+	    begin match is_twoaddr_builtin ef rargs res with
+	    | None -> 
+	       LTL.Lbuiltin(ef, rargs, rres) :: k
+	    | Some(argsi,argsr) ->
+	       let rec f args res =
+		 match args, res with
+		 | [], [] -> LTL.Lbuiltin(ef, rres@argsr, rres) :: k
+		 | (a::aa), (r::rr) -> if a=r
+				      then f aa rr
+				      else LTL.Lop(Omove, [a], r) :: f aa rr
+		 | _, _ -> assert false
+	       in f argsi rres
+	    end
+     end
   | Xbranch s ->
       LTL.Lbranch s :: []
   | Xcond(cond, args, s1, s2) ->
@@ -1026,24 +1202,69 @@ let transl_function fn alloc =
 exception Timeout
 
 let rec first_round f liveness =
-  let alloc = find_coloring f liveness in
   if !option_dalloctrace then begin
-    fprintf !pp "-------------- After initial register allocation\n\n";
-    PrintXTL.print_function !pp ~alloc: alloc ~live: liveness f
+    with_debug_string (fun s->
+      let pp = open_out (s^".alloc.in0") in
+      PrintXTL.print_function pp f;
+      close_out pp;
+      let pp = open_out (s^".alloc.live0") in
+      PrintXTL.print_function pp ~live:liveness f;
+      close_out pp)
   end;
+  let alloc = find_coloring f liveness in
   let ts = tospill_function f alloc in
+  if !option_dalloctrace then begin
+    with_debug_string (fun s->
+      let pp = open_out (s^".alloc.out0") in
+      PrintXTL.print_function pp ~alloc:alloc f;
+      fprintf pp "\nUnallocated: ";
+      VSet.iter (fun v -> fprintf pp "%a "
+				  PrintXTL.var v) ts;
+      fprintf pp "\n";
+      close_out pp)
+  end;
+  if !option_dalloctrace then begin
+    fprintf !pp "--- Remain to be spilled:\n";
+    VSet.iter (fun v -> fprintf !pp "%a " PrintXTL.var v) ts;
+    fprintf !pp "\n\n"
+  end;      
   if VSet.is_empty ts then success f alloc else more_rounds f ts 1
 
 and more_rounds f ts count =
   if count >= 40 then raise Timeout;
   let f' = spill_function f ts count in
   let liveness = liveness_analysis f' in
+  if !option_dalloctrace then begin
+    with_debug_string (fun s->
+      let pp = open_out (s^".alloc.in"
+			 ^string_of_int count) in
+      PrintXTL.print_function pp f';
+      close_out pp;
+      let pp = open_out (s^".alloc.live"
+			 ^string_of_int count) in
+      PrintXTL.print_function pp ~live:liveness f';
+      close_out pp)
+  end;
+  if !option_dalloctrace then begin
+    fprintf !pp "-------------- After insertion of spill code (round %d)\n\n" count;
+    PrintXTL.print_function !pp ~live: liveness f'
+  end;
   let alloc = find_coloring f' liveness in
   if !option_dalloctrace then begin
     fprintf !pp "-------------- After register allocation (round %d)\n\n" count;
     PrintXTL.print_function !pp ~alloc: alloc ~live: liveness f'
   end;
   let ts' = tospill_function f' alloc in
+  if !option_dalloctrace then begin
+    with_debug_string (fun s->
+      let pp = open_out (s^".alloc.out"^string_of_int count) in
+      PrintXTL.print_function pp ~alloc:alloc f;
+      fprintf pp "\nUnallocated: ";
+      VSet.iter (fun v -> fprintf pp "%a "
+				  PrintXTL.var v) ts;
+      fprintf pp "\n";
+      close_out pp)
+  end;
   if VSet.is_empty ts'
   then success f' alloc
   else begin
@@ -1069,6 +1290,12 @@ let regalloc f =
   init_trace();
   reset_temps();
   let f1 = Splitting.rename_function f in
+  (*
+  if !option_dalloctrace then begin
+    with_debug_string (fun s-> 
+      printf "======= PROCESSING %s ====== \n" s)
+  end;
+  *)
   match RTLtyping.type_function f1 with
   | Error msg ->
       Error(MSG (coqstring_of_camlstring "RTL code after splitting is ill-typed:") :: msg)
@@ -1077,6 +1304,10 @@ let regalloc f =
       let liveness = liveness_analysis f2 in
       let f3 = dead_code_elimination f2 liveness in
       if !option_dalloctrace then begin
+        with_debug_string (fun s-> 
+         fprintf !pp "======= PROCESSING %s ====== \n" s);
+        fprintf !pp "-------------- Pre-Initial XTL\n\n";
+        PrintXTL.print_function !pp f2;
         fprintf !pp "-------------- Initial XTL\n\n";
         PrintXTL.print_function !pp f3
       end;

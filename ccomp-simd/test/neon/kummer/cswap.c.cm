@@ -1,0 +1,190 @@
+extern "__builtin_fabs" = builtin "__builtin_fabs" : float -> float
+extern "__builtin_memcpy_aligned" = builtin "__builtin_memcpy_aligned" :
+         int -> int -> int -> int -> void
+extern "__builtin_annot" = builtin "__builtin_annot" : int -> void
+extern "__builtin_annot_intval" = builtin "__builtin_annot_intval" : int ->
+         int -> int
+extern "__builtin_va_start" = builtin "__builtin_va_start" : int -> void
+extern "__builtin_va_arg" = builtin "__builtin_va_arg" : int -> int -> void
+extern "__builtin_va_copy" = builtin "__builtin_va_copy" : int -> int -> void
+extern "__builtin_va_end" = builtin "__builtin_va_end" : int -> void
+extern "__compcert_va_int32" = extern "__compcert_va_int32" : int -> int
+extern "__compcert_va_int64" = extern "__compcert_va_int64" : int -> long
+extern "__compcert_va_float64" = extern "__compcert_va_float64" : int ->
+         float
+extern "__builtin_bswap" = builtin "__builtin_bswap" : int -> int
+extern "__builtin_bswap32" = builtin "__builtin_bswap32" : int -> int
+extern "__builtin_bswap16" = builtin "__builtin_bswap16" : int -> int
+extern "__builtin_cntlz" = builtin "__builtin_cntlz" : int -> int
+extern "__builtin_fsqrt" = builtin "__builtin_fsqrt" : float -> float
+extern "__builtin_read16_reversed" = builtin "__builtin_read16_reversed" :
+         int -> int
+extern "__builtin_read32_reversed" = builtin "__builtin_read32_reversed" :
+         int -> int
+extern "__builtin_write16_reversed" = builtin "__builtin_write16_reversed" :
+         int -> int -> void
+extern "__builtin_write32_reversed" = builtin "__builtin_write32_reversed" :
+         int -> int -> void
+extern "__builtin_vst1q_u8" = builtin "__builtin_vst1q_u8" : int -> t128 ->
+         void
+extern "__builtin_vld1q_u8" = builtin "__builtin_vld1q_u8" : int -> t128
+extern "__builtin_vmovq_n_u8" = builtin "__builtin_vmovq_n_u8" : int -> t128
+extern "__builtin_vmovq_n_u16" = builtin "__builtin_vmovq_n_u16" : int ->
+         t128
+extern "__builtin_vmovq_n_u32" = builtin "__builtin_vmovq_n_u32" : int ->
+         t128
+extern "__builtin_vmovq_n_u64" = builtin "__builtin_vmovq_n_u64" : long ->
+         t128
+extern "__builtin_vaddq_u8" = builtin "__builtin_vaddq_u8" : t128 -> t128 ->
+         t128
+extern "__builtin_vaddq_u16" = builtin "__builtin_vaddq_u16" : t128 ->
+         t128 -> t128
+extern "__builtin_vaddq_u32" = builtin "__builtin_vaddq_u32" : t128 ->
+         t128 -> t128
+extern "__builtin_vaddq_u64" = builtin "__builtin_vaddq_u64" : t128 ->
+         t128 -> t128
+extern "__builtin_vsubq_u8" = builtin "__builtin_vsubq_u8" : t128 -> t128 ->
+         t128
+extern "__builtin_vsubq_u16" = builtin "__builtin_vsubq_u16" : t128 ->
+         t128 -> t128
+extern "__builtin_vaddq_u8" = builtin "__builtin_vaddq_u8" : t128 -> t128 ->
+         t128
+extern "__builtin_vaddq_u64" = builtin "__builtin_vaddq_u64" : t128 ->
+         t128 -> t128
+extern "__builtin_neon_vld1v16qi" = builtin "__builtin_neon_vld1v16qi" :
+         int -> t128
+extern "__builtin_neon_vst1v16qi" = builtin "__builtin_neon_vst1v16qi" :
+         int -> t128 -> void
+extern "__builtin_neon_vdup_nv4si" = builtin "__builtin_neon_vdup_nv4si" :
+         int -> t128
+extern "__builtin_neon_veorv16qi" = builtin "__builtin_neon_veorv16qi" :
+         t128 -> t128 -> int -> t128
+extern "__builtin_neon_vandv16qi" = builtin "__builtin_neon_vandv16qi" :
+         t128 -> t128 -> int -> t128
+"cswap"('input_0', 'input_1', 'input_2') : int -> int -> int -> void
+{
+  var 'a0', 'a1', 'a2', 'a3', 'a4', 'b0', 'b1', 'b2', 'b3', 'b4', 't', 'c',
+      'bit', 'adr0', 'adr1', 'adr2', 'count', '$91', '$90', '$89', '$88',
+      '$87', '$86', '$85', '$84', '$83', '$82', '$81', '$80', '$79', '$78',
+      '$77', '$76', '$75', '$74', '$73', '$72', '$71', '$70', '$69', '$68',
+      '$67', '$66', '$65', '$64', '$63', '$62', '$61';
+  'adr0' = 'input_0';
+  '$61' = "__builtin_neon_vld1v16qi"('adr0') : int -> t128;
+  'a0' = '$61';
+  'adr0' = 'adr0' + 1 * 16;
+  '$62' = "__builtin_neon_vld1v16qi"('adr0') : int -> t128;
+  'a1' = '$62';
+  'adr0' = 'adr0' + 1 * 16;
+  '$63' = "__builtin_neon_vld1v16qi"('adr0') : int -> t128;
+  'a2' = '$63';
+  'adr0' = 'adr0' + 1 * 16;
+  '$64' = "__builtin_neon_vld1v16qi"('adr0') : int -> t128;
+  'a3' = '$64';
+  'adr0' = 'adr0' + 1 * 16;
+  '$65' = "__builtin_neon_vld1v16qi"('adr0') : int -> t128;
+  'a4' = '$65';
+  'adr0' = 'adr0' + 1 * 16;
+  'adr1' = 'input_1';
+  '$66' = "__builtin_neon_vld1v16qi"('adr1') : int -> t128;
+  'b0' = '$66';
+  'adr1' = 'adr1' + 1 * 16;
+  '$67' = "__builtin_neon_vld1v16qi"('adr1') : int -> t128;
+  'b1' = '$67';
+  'adr1' = 'adr1' + 1 * 16;
+  '$68' = "__builtin_neon_vld1v16qi"('adr1') : int -> t128;
+  'b2' = '$68';
+  'adr1' = 'adr1' + 1 * 16;
+  '$69' = "__builtin_neon_vld1v16qi"('adr1') : int -> t128;
+  'b3' = '$69';
+  'adr1' = 'adr1' + 1 * 16;
+  '$70' = "__builtin_neon_vld1v16qi"('adr1') : int -> t128;
+  'b4' = '$70';
+  'adr1' = 'adr1' + 1 * 16;
+  'bit' = 'input_2';
+  'bit' = 'bit' - 1;
+  '$71' = "__builtin_neon_vdup_nv4si"('bit') : int -> t128;
+  'c' = '$71';
+  '$72' = "__builtin_neon_veorv16qi"('a0', 'b0', 0) : t128 -> t128 -> int ->
+                                                      t128;
+  't' = '$72';
+  '$73' = "__builtin_neon_vandv16qi"('t', 'c', 0) : t128 -> t128 -> int ->
+                                                    t128;
+  't' = '$73';
+  '$74' = "__builtin_neon_veorv16qi"('a0', 't', 0) : t128 -> t128 -> int ->
+                                                     t128;
+  'a0' = '$74';
+  '$75' = "__builtin_neon_veorv16qi"('b0', 't', 0) : t128 -> t128 -> int ->
+                                                     t128;
+  'b0' = '$75';
+  '$76' = "__builtin_neon_veorv16qi"('a1', 'b1', 0) : t128 -> t128 -> int ->
+                                                      t128;
+  't' = '$76';
+  '$77' = "__builtin_neon_vandv16qi"('t', 'c', 0) : t128 -> t128 -> int ->
+                                                    t128;
+  't' = '$77';
+  '$78' = "__builtin_neon_veorv16qi"('a1', 't', 0) : t128 -> t128 -> int ->
+                                                     t128;
+  'a1' = '$78';
+  '$79' = "__builtin_neon_veorv16qi"('b1', 't', 0) : t128 -> t128 -> int ->
+                                                     t128;
+  'b1' = '$79';
+  '$80' = "__builtin_neon_veorv16qi"('a2', 'b2', 0) : t128 -> t128 -> int ->
+                                                      t128;
+  't' = '$80';
+  '$81' = "__builtin_neon_vandv16qi"('t', 'c', 0) : t128 -> t128 -> int ->
+                                                    t128;
+  't' = '$81';
+  '$82' = "__builtin_neon_veorv16qi"('a2', 't', 0) : t128 -> t128 -> int ->
+                                                     t128;
+  'a2' = '$82';
+  '$83' = "__builtin_neon_veorv16qi"('b2', 't', 0) : t128 -> t128 -> int ->
+                                                     t128;
+  'b2' = '$83';
+  '$84' = "__builtin_neon_veorv16qi"('a3', 'b3', 0) : t128 -> t128 -> int ->
+                                                      t128;
+  't' = '$84';
+  '$85' = "__builtin_neon_vandv16qi"('t', 'c', 0) : t128 -> t128 -> int ->
+                                                    t128;
+  't' = '$85';
+  '$86' = "__builtin_neon_veorv16qi"('a3', 't', 0) : t128 -> t128 -> int ->
+                                                     t128;
+  'a3' = '$86';
+  '$87' = "__builtin_neon_veorv16qi"('b3', 't', 0) : t128 -> t128 -> int ->
+                                                     t128;
+  'b3' = '$87';
+  '$88' = "__builtin_neon_veorv16qi"('a4', 'b4', 0) : t128 -> t128 -> int ->
+                                                      t128;
+  't' = '$88';
+  '$89' = "__builtin_neon_vandv16qi"('t', 'c', 0) : t128 -> t128 -> int ->
+                                                    t128;
+  't' = '$89';
+  '$90' = "__builtin_neon_veorv16qi"('a4', 't', 0) : t128 -> t128 -> int ->
+                                                     t128;
+  'a4' = '$90';
+  '$91' = "__builtin_neon_veorv16qi"('b4', 't', 0) : t128 -> t128 -> int ->
+                                                     t128;
+  'b4' = '$91';
+  'adr0' = 'input_0';
+  "__builtin_neon_vst1v16qi"('adr0', 'a0') : int -> t128 -> int;
+  'adr0' = 'adr0' + 1 * 16;
+  "__builtin_neon_vst1v16qi"('adr0', 'a1') : int -> t128 -> int;
+  'adr0' = 'adr0' + 1 * 16;
+  "__builtin_neon_vst1v16qi"('adr0', 'a2') : int -> t128 -> int;
+  'adr0' = 'adr0' + 1 * 16;
+  "__builtin_neon_vst1v16qi"('adr0', 'a3') : int -> t128 -> int;
+  'adr0' = 'adr0' + 1 * 16;
+  "__builtin_neon_vst1v16qi"('adr0', 'a4') : int -> t128 -> int;
+  'adr0' = 'adr0' + 1 * 16;
+  'adr1' = 'input_1';
+  "__builtin_neon_vst1v16qi"('adr1', 'b0') : int -> t128 -> int;
+  'adr1' = 'adr1' + 1 * 16;
+  "__builtin_neon_vst1v16qi"('adr1', 'b1') : int -> t128 -> int;
+  'adr1' = 'adr1' + 1 * 16;
+  "__builtin_neon_vst1v16qi"('adr1', 'b2') : int -> t128 -> int;
+  'adr1' = 'adr1' + 1 * 16;
+  "__builtin_neon_vst1v16qi"('adr1', 'b3') : int -> t128 -> int;
+  'adr1' = 'adr1' + 1 * 16;
+  "__builtin_neon_vst1v16qi"('adr1', 'b4') : int -> t128 -> int;
+  'adr1' = 'adr1' + 1 * 16;
+}
+

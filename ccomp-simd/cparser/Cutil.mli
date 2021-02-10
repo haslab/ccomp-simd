@@ -36,13 +36,6 @@ val incl_attributes : attributes -> attributes -> bool
 val alignas_attribute : attributes -> int
   (* Extract the value of the [_Alignas] attributes, if any.
      Return 0 if none, a (positive) power of two alignment if some. *)
-val vectorsize_attribute : attributes -> int
-  (* Extract the value of the [__vector_size__] attributes, if any.
-     Return 0 if none, a (positive) power of two alignment if some. *)
-val vector_size : typ -> int
-  (* Extract the vector size of a type (0 if not a vector) *)
-val vector_basetype : typ -> typ
-  (* Extract the vector base type of a type (unchanged if not a vector) *)
 val find_custom_attributes : string list -> attributes -> attr_arg list list
   (* Extract arguments of custom [Attr] attributes whose names appear
      in the given list of names. *)
@@ -61,6 +54,8 @@ val change_attributes_type : Env.t -> (attributes -> attributes) -> typ -> typ
   (* Apply the given function to the top-level attributes of the given type *)
 val attr_is_type_related: attribute -> bool
   (* Is an attribute type-related (true) or variable-related (false)? *)
+val attr_inherited_by_members: attribute -> bool
+  (* Is an attribute of a composite inherited by members of the composite? *)
 
 (* Type compatibility *)
 val compatible_types : ?noattrs: bool -> Env.t -> typ -> typ -> bool
@@ -80,8 +75,6 @@ val alignof : Env.t -> typ -> int option
      Machine-dependent. [None] is returned if the type is incomplete. *)
 val sizeof_ikind: ikind -> int
   (* Return the size of the given integer kind. *)
-val sizeof_fkind: fkind -> int
-  (* Return the size of the given float kind. *)
 val incomplete_type : Env.t -> typ -> bool
   (* Return true if the given type is incomplete, e.g.
      declared but not defined struct or union, or array type  without a size. *)
@@ -109,6 +102,12 @@ val is_composite_type : Env.t -> typ -> bool
   (* Is type a struct or union? *)
 val is_function_type : Env.t -> typ -> bool
   (* Is type a function type? (not pointer to function) *)
+val is_vararg_function_type : Env.t -> typ -> bool
+  (* Is type a vararg function type? (not pointer to function) *)
+val is_homfstruct_type : Env.t -> typ -> bool
+  (* Is type a homogeneous aggregate? *)
+val homfstruct_check : Env.t -> typ -> (typ*(exp->exp) list) option
+  (* Is type a homogeneous aggregate? *)
 val pointer_arithmetic_ok : Env.t -> typ -> bool
   (* Is the type [*ty] appropriate for pointer arithmetic?
      [ty] must not be void, nor a function type, nor an incomplete type. *)
@@ -216,3 +215,8 @@ val printloc: out_channel -> location -> unit
 val formatloc: Format.formatter -> location -> unit
   (* Printer for locations (for Format) *)
 
+(* Initializers *)
+
+val default_init: Env.t -> typ -> init
+  (* Return a default initializer for the given type
+     (with zero numbers, null pointers, etc). *)

@@ -29,12 +29,17 @@ let mreg pp r =
   | Some s -> fprintf pp "%s" s
   | None -> fprintf pp "<unknown machreg>"
 
+let rec mregs pp = function
+  | [] -> ()
+  | [r] -> mreg pp r
+  | r1::rl -> fprintf pp "%a, %a" mreg r1 mregs rl
+
 let short_name_of_type = function
   | Tint -> 'i'
   | Tfloat -> 'f'
   | Tlong -> 'l'
   | Tsingle -> 's'
-  | T128 -> 'x'
+  | Tvec _ -> 'v'
 
 let loc pp = function
   | R r -> mreg pp r
@@ -84,8 +89,8 @@ let print_instruction pp succ = function
       fprintf pp "%a =r %a" var dst var src
   | Xspill(src, dst) ->
       fprintf pp "%a =s %a" var dst var src
-  | Xparmove(srcs, dsts, t1, t2) ->
-      fprintf pp "(%a) = (%a) using %a, %a" vars dsts vars srcs var t1 var t2
+  | Xparmove(srcs, dsts, itmp, ftmp) ->
+      fprintf pp "(%a) = (%a) using %a, %a" vars dsts vars srcs var itmp var ftmp
   | Xop(op, args, res) ->
       fprintf pp "%a = %a" var res (print_operation var) (op, args)
   | Xload(chunk, addr, args, dst) ->

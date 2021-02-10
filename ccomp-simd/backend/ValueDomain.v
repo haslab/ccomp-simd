@@ -508,6 +508,7 @@ Inductive aval : Type :=
   | Uns (n: Z)
   | Sgn (n: Z)
   | L (n: int64)
+  | V (n: int128)
   | F (f: float)
   | Fsingle
   | Ptr (p: aptr)
@@ -515,7 +516,7 @@ Inductive aval : Type :=
 
 Definition eq_aval: forall (v1 v2: aval), {v1=v2} + {v1<>v2}.
 Proof.
-  intros. generalize zeq Int.eq_dec Int64.eq_dec Float.eq_dec eq_aptr; intros.
+  intros. generalize zeq Int.eq_dec Int64.eq_dec Int128.eq_dec Float.eq_dec eq_aptr; intros.
   decide equality. 
 Defined.
 
@@ -536,6 +537,7 @@ Inductive vmatch : val -> aval -> Prop :=
   | vmatch_Sgn: forall i n, 0 < n -> is_sgn n i -> vmatch (Vint i) (Sgn n)
   | vmatch_Sgn_undef: forall n, vmatch Vundef (Sgn n)
   | vmatch_l: forall i, vmatch (Vlong i) (L i)
+  | vmatch_v: forall v, vmatch (Vvec tt v) (V v)
   | vmatch_f: forall f, vmatch (Vfloat f) (F f)
   | vmatch_single: forall f, Float.is_single f -> vmatch (Vfloat f) Fsingle
   | vmatch_single_undef: vmatch Vundef Fsingle
@@ -544,16 +546,17 @@ Inductive vmatch : val -> aval -> Prop :=
   | vmatch_ifptr_undef: forall p, vmatch Vundef (Ifptr p)
   | vmatch_ifptr_i: forall i p, vmatch (Vint i) (Ifptr p)
   | vmatch_ifptr_l: forall i p, vmatch (Vlong i) (Ifptr p)
-  | vmatch_ifptr_x: forall i p, vmatch (V128 i) (Ifptr p)
   | vmatch_ifptr_f: forall f p, vmatch (Vfloat f) (Ifptr p)
-  | vmatch_ifptr_p: forall b ofs p, pmatch b ofs p -> vmatch (Vptr b ofs) (Ifptr p).
+  | vmatch_ifptr_p: forall b ofs p, pmatch b ofs p -> vmatch (Vptr b ofs) (Ifptr p)
+  | vmatch_ifptr_v: forall t v p, vmatch (Vvec t v) (Ifptr p)
+.
 
 Lemma vmatch_ifptr:
   forall v p,
   (forall b ofs, v = Vptr b ofs -> pmatch b ofs p) ->
   vmatch v (Ifptr p).
 Proof.
-  intros. destruct v; constructor; auto.
+  intros. destruct v; constructor; auto. 
 Qed.
 
 Lemma vmatch_top: forall v x, vmatch v x -> vmatch v Vtop.
@@ -682,6 +685,14 @@ Qed.
 
 Hint Resolve is_uns_mon is_sgn_mon is_uns_sgn is_uns_usize is_sgn_ssize : va.
 
+Lemma is_uns_1:
+  forall n, is_uns 1 n -> n = Int.zero \/ n = Int.one.
+Proof.
+  intros. destruct (Int.testbit n 0) eqn:B0; [right|left]; apply Int.same_bits_eq; intros.
+  rewrite Int.bits_one. destruct (zeq i 0). subst i; auto. apply H; omega. 
+  rewrite Int.bits_zero. destruct (zeq i 0). subst i; auto. apply H; omega.
+Qed.
+
 (** Smart constructors for [Uns] and [Sgn]. *)
 
 Definition uns (n: Z) : aval :=
@@ -750,12 +761,19 @@ Qed.
 
 Hint Resolve vmatch_uns vmatch_uns_undef vmatch_sgn vmatch_sgn_undef : va.
 
+Lemma vmatch_Uns_1:
+  forall v, vmatch v (Uns 1) -> v = Vundef \/ v = Vint Int.zero \/ v = Vint Int.one.
+Proof.
+  intros. inv H; auto. right. exploit is_uns_1; eauto. intuition congruence.
+Qed.
+
 (** Ordering *)
 
 Inductive vge: aval -> aval -> Prop :=
   | vge_bot: forall v, vge v Vbot
   | vge_i: forall i, vge (I i) (I i)
   | vge_l: forall i, vge (L i) (L i)
+  | vge_v: forall v, vge (V v) (V v)
   | vge_f: forall f, vge (F f) (F f)
   | vge_uns_i: forall n i, 0 <= n -> is_uns n i -> vge (Uns n) (I i)
   | vge_uns_uns: forall n1 n2, n1 >= n2 -> vge (Uns n1) (Uns n2)
@@ -769,6 +787,7 @@ Inductive vge: aval -> aval -> Prop :=
   | vge_ip_ip: forall p q, pge p q -> vge (Ifptr p) (Ifptr q)
   | vge_ip_i: forall p i, vge (Ifptr p) (I i)
   | vge_ip_l: forall p i, vge (Ifptr p) (L i)
+  | vge_ip_v: forall p v, vge (Ifptr p) (V v)
   | vge_ip_f: forall p f, vge (Ifptr p) (F f)
   | vge_ip_uns: forall p n, vge (Ifptr p) (Uns n)
   | vge_ip_sgn: forall p n, vge (Ifptr p) (Sgn n)
@@ -831,6 +850,8 @@ Definition vlub (v w: aval) : aval :=
       Fsingle
   | L i1, L i2 =>
       if Int64.eq i1 i2 then v else ltop
+  | V v1, V v2 =>
+      if Int128.eq v1 v2 then v else ltop
   | Ptr p1, Ptr p2 => Ptr(plub p1 p2)
   | Ptr p1, Ifptr p2 => Ifptr(plub p1 p2)
   | Ifptr p1, Ptr p2 => Ifptr(plub p1 p2)
@@ -852,6 +873,7 @@ Proof.
 - f_equal; apply Z.max_comm.
 - f_equal; apply Z.max_comm.
 - rewrite Int64.eq_sym. predSpec Int64.eq Int64.eq_spec n0 n; congruence.
+- rewrite Int128.eq_sym. predSpec Int128.eq Int128.eq_spec n0 n; congruence.
 - rewrite dec_eq_sym. destruct (Float.eq_dec f0 f). congruence. 
   rewrite andb_comm. auto.
 - f_equal; apply plub_comm.
@@ -924,6 +946,7 @@ Proof.
 - eapply vge_trans. apply vge_sgn_sgn'. eauto with va.
 - eapply vge_trans. apply vge_sgn_sgn'. eauto with va.
 - destruct (Int64.eq n n0); constructor.
+- destruct (Int128.eq n n0); constructor.
 - destruct (Float.eq_dec f f0). constructor.
   destruct (Float.is_single_dec f && Float.is_single_dec f0) eqn:FS.
   InvBooleans. auto with va.
@@ -1029,6 +1052,7 @@ Definition vincl (v w: aval) : bool :=
   | Uns n, Sgn m => zlt n m
   | Sgn n, Sgn m => zle n m
   | L i, L j => Int64.eq_dec i j
+  | V i, V j => Int128.eq_dec i j
   | F i, F j => Float.eq_dec i j
   | F i, Fsingle => Float.is_single_dec i
   | Fsingle, Fsingle => true
@@ -1048,6 +1072,7 @@ Proof.
   InvBooleans. constructor; auto with va.
   InvBooleans. constructor; auto with va.
   InvBooleans. constructor; auto with va.
+  InvBooleans. subst; auto with va.
   InvBooleans. subst; auto with va.
   InvBooleans. subst; auto with va.
   InvBooleans. auto with va.
@@ -1794,6 +1819,40 @@ Proof.
   destruct 1; simpl; auto with va.
 Qed.
 
+Definition vecofdoubles (x y: aval) :=
+  match x, y with
+  | F i, F j => V(Int128.ofwords (Float.bits_of_double i) (Float.bits_of_double j))
+  | _, _     => ltop
+  end.
+
+Lemma vecofdoubles_sound:
+  forall v w x y, vmatch v x -> vmatch w y -> vmatch (Val.vecofdoubles v w) (vecofdoubles x y).
+Proof.
+  intros. unfold vecofdoubles, ltop; inv H; simpl; auto with va; inv H0; auto with va.
+Qed.
+
+Definition lowvec (x: aval) :=
+  match x with
+  | V i => F(Float.double_of_bits (Int128.loword i))
+  | _   => itop
+  end.
+
+Lemma lovec_sound: forall v x, vmatch v x -> vmatch (Val.doubleofveclo v) (lowvec x).
+Proof.
+  destruct 1; simpl; auto with va.
+Qed.
+
+Definition hivec (x: aval) :=
+  match x with
+  | V i => F(Float.double_of_bits (Int128.hiword i))
+  | _   => itop
+  end.
+
+Lemma hivec_sound: forall v x, vmatch v x -> vmatch (Val.doubleofvechi v) (hivec x).
+Proof.
+  destruct 1; simpl; auto with va.
+Qed.
+
 (** Comparisons *)
 
 Definition cmpu_bool (c: comparison) (v w: aval) : abool :=
@@ -1953,12 +2012,16 @@ Proof.
 - constructor. omega. apply is_zero_ext_uns; auto with va.
 - constructor. xomega. apply is_sign_ext_sgn; auto with va. apply Z.min_case; auto with va.
 - constructor. omega. apply is_zero_ext_uns; auto with va.
+- destruct (Archi.vec_typ_eq v0 tt); constructor.
 - constructor. apply Float.singleoffloat_is_single.
 - constructor. omega. apply is_sign_ext_sgn; auto with va.
 - constructor. omega. apply is_zero_ext_uns; auto with va.
 - constructor. omega. apply is_sign_ext_sgn; auto with va.
 - constructor. omega. apply is_zero_ext_uns; auto with va.
 - constructor. apply Float.singleoffloat_is_single.
+(* SIMD *)
+- destruct (Archi.vec_typ_eq v0 t); constructor.
+(* eSIMD *)
 Qed.
 
 Lemma vnormalize_cast:
@@ -1981,12 +2044,14 @@ Proof.
   auto.
 - (* int64 *)
   destruct v; try contradiction; constructor.
-- (* T128 *)
-  destruct v; try contradiction; constructor.
 - (* float32 *)
   rewrite H2. destruct v; simpl; constructor. apply Float.singleoffloat_is_single. 
 - (* float64 *)
   destruct v; try contradiction; constructor.
+(* SIMD *)
+- (* vec *)
+  destruct v; try contradiction; constructor.
+(* eSIMD *)
 Qed.
 
 Lemma vnormalize_monotone:
@@ -2107,10 +2172,14 @@ Proof.
   destruct (zle (lo + size_chunk chunk) hi); auto.
 Qed.
 
+(* SIMD *)
+Definition max_typesize := typesize (Tvec Archi.vec_widest).
+(* eSIMD *)
+
 Program Definition ablock_store (chunk: memory_chunk) (ab: ablock) (i: Z) (av: aval) : ablock :=
   {| ab_contents :=
        ZMap.set i (ACval chunk av)
-         (inval_before i (i - 15)
+         (inval_before i (i - (max_typesize-1))
             (inval_after (i + 1) (i + size_chunk chunk - 1) ab.(ab_contents)));
      ab_summary :=
        vplub av ab.(ab_summary);
@@ -2126,7 +2195,7 @@ Definition ablock_loadbytes (ab: ablock) : aptr := ab.(ab_summary).
 
 Program Definition ablock_storebytes (ab: ablock) (p: aptr) (ofs: Z) (sz: Z) :=
   {| ab_contents :=
-       inval_before ofs (ofs - 15)
+       inval_before ofs (ofs - (max_typesize-1))
          (inval_after ofs (ofs + sz - 1) ab.(ab_contents));
      ab_summary :=
        plub p ab.(ab_summary);
@@ -2287,6 +2356,11 @@ Proof.
   try (eelim IN_ENC_BYTES; eassumption);
   try (eelim IN_REP_UNDEF; eassumption).
   simpl in A. split; auto. intuition congruence.
+(* SIMD *)
+  destruct (Archi.vec_typ_eq t v0);
+  try (eelim IN_ENC_BYTES; eassumption);
+  try (eelim IN_REP_UNDEF; eassumption).
+(* eSIMD *)
 Qed.
 
 Lemma smatch_store:
@@ -2448,17 +2522,19 @@ Proof.
 - omegaContradiction.
 Qed.
 
-Lemma max_size_chunk: forall chunk, size_chunk chunk <= 16.
+Lemma max_size_chunk: forall chunk,
+ size_chunk chunk <= max_typesize.
 Proof.
-  destruct chunk; simpl; omega.
+  destruct chunk; unfold max_typesize; simpl; omega.
 Qed.
 
 Remark inval_before_contents:
   forall i c chunk' av' j,
-  (inval_before i (i - 15) c)##j = ACval chunk' av' ->
+  (inval_before i (i - (max_typesize-1)) c)##j
+   = ACval chunk' av' ->
   c##j = ACval chunk' av' /\ (j + size_chunk chunk' <= i \/ i <= j).
 Proof.
-  intros. destruct (zlt j (i - 15)). 
+  intros. destruct (zlt j (i - (max_typesize-1))). 
   rewrite inval_before_outside in H by omega. 
   split. auto. left. generalize (max_size_chunk chunk'); omega.
   destruct (zlt j i). 

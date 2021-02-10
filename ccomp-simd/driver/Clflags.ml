@@ -10,15 +10,11 @@
 (*                                                                     *)
 (* *********************************************************************)
 
-open Printf
-open Configuration
-
 (* Command-line flags *)
 
 let prepro_options = ref ([]: string list)
 let linker_options = ref ([]: string list)
 let assembler_options = ref ([]: string list)
-let mach_options = ref 0
 let option_flongdouble = ref false
 let option_fstruct_return = ref false
 let option_fbitfields = ref false
@@ -56,44 +52,59 @@ let option_small_data =
        && Configuration.system = "diab"
        then 8 else 0)
 let option_small_const = ref (!option_small_data)
+let option_timings = ref false
 
-(* flags concerning value and taint analyses *)
-let option_dmir = ref false
-let option_fva = ref false
-let option_fta = ref false
+(** Debug facility *)
 
-(* machine-dependent option handling *)
+let dbg_v cmd = if !option_v then cmd; ()
+let dbg_alloc cmd = if !option_dalloctrace then cmd; ()
 
-let setbit n x  = x lor (1 lsl n)
+(** Timing facility *)
 
-let usage_ia32_string =
-  let printmopt mopt r = let (opt,desc,mclass,cdefs,k) = mopt in
-			 sprintf "%8s \t%s\n%s" opt desc r
-  in "Machine-dependent options (ia32):\n" ^
-       List.fold_right printmopt (List.rev CXBuiltins.ia32_mopts) ""
+let timers : (string * float) list ref = ref []
 
+let add_to_timer name time =
+  let rec add = function
+  | [] -> [name, time]
+  | (name1, time1 as nt1) :: rem ->
+      if name1 = name then (name1, time1 +. time) :: rem else nt1 :: add rem
+  in timers := add !timers
 
-let mach_options_list =
-  match Configuration.arch with
-  | "ia32" -> List.map (fun (opt,desc,mclass,cdefs,k) -> opt)
-		       CXBuiltins.ia32_mopts
-  | _ -> []
+let time name fn arg =
+  if not !option_timings then
+    fn arg
+  else begin
+    let start = Sys.time() in
+    try
+      let res = fn arg in
+      add_to_timer name (Sys.time() -. start);
+      res
+    with x ->
+      add_to_timer name (Sys.time() -. start);
+      raise x
+  end
 
-let rec process_ia32_option lopts o =
-  match lopts with
-  | [] -> eprintf "Warning: unrecognised option '%s' \n" o
-  | x::xs -> let (opt,desc,mclass,cdefs,cont) = x in
-	     if opt = o
-	     then (mach_options := setbit mclass !mach_options;
-		   prepro_options := List.concat 
-				       ((List.map (fun d->[d;"-D"]) cdefs)
-					@ [!prepro_options]);
-		   match cont with None -> ()
-				 | Some o2 -> process_ia32_option xs o2)
-	     else process_ia32_option xs o
+let time2 name fn arg1 arg2 = time name (fun () -> fn arg1 arg2) ()
+let time3 name fn arg1 arg2 arg3 = time name (fun () -> fn arg1 arg2 arg3) ()
 
-let process_mach_option o =
-  match Configuration.arch with
-  | "ia32" -> process_ia32_option CXBuiltins.ia32_mopts o
-  | _ -> printf "Warning: unrecognized option %s\n" o
+let time_coq name fn arg =
+  if not !option_timings then
+    fn arg
+  else begin
+    let start = Sys.time() in
+    try
+      let res = fn arg in
+      add_to_timer (Camlcoq.camlstring_of_coqstring name) (Sys.time() -. start);
+      res
+    with x ->
+      add_to_timer (Camlcoq.camlstring_of_coqstring name) (Sys.time() -. start);
+      raise x
+  end
 
+let print_timers () =
+  if !option_timings then
+    List.iter
+      (fun (name, time) -> Printf.printf "%7.2fs  %s\n" time name)
+      !timers
+
+let _ = at_exit print_timers

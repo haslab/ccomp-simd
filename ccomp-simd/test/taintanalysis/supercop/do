@@ -1,5 +1,0 @@
-#!/bin/sh
-
-time make
-time make SIZE=0
-time make SIZE=32

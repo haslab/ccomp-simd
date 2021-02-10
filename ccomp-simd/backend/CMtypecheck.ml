@@ -25,6 +25,13 @@ open PrintAST
 open Integers
 open Cminor
 
+let list_take n l =
+  let rec loop n = function
+    | h :: t when n > 0 ->
+      h::loop (n - 1) t
+    | _ -> []
+  in loop n l
+
 exception Error of string
 
 type ty = Base of typ | Var of ty option ref
@@ -34,14 +41,14 @@ let tint = Base Tint
 let tfloat = Base Tfloat
 let tlong = Base Tlong
 let tsingle = Base Tsingle
-let t128 = Base T128
+let tvec = Base (Tvec ())
 
 let ty_of_typ = function
   | Tint -> tint
   | Tfloat -> tfloat
   | Tlong -> tlong
   | Tsingle -> tfloat (* should be tsingle when supported *)
-  | T128 -> t128
+  | Tvec _ -> tvec
 
 let ty_of_sig_args tyl = List.map ty_of_typ tyl
 
@@ -168,9 +175,9 @@ let type_chunk = function
   | Mint16unsigned -> tint
   | Mint32 -> tint
   | Mint64 -> tlong
-  | Mint128 -> t128
   | Mfloat32 -> tfloat
   | Mfloat64 -> tfloat
+  | Mvec _ -> tvec
 
 let name_of_chunk = PrintAST.name_of_chunk
 
@@ -254,14 +261,15 @@ let rec type_stmt env blk ret s =
       begin try
         unify tint te1;
         unify_list (ty_of_sig_args sg.sig_args) tel;
-        let ty_res =
-          match sg.sig_res with
+        let ty_res = List.map ty_of_typ sg.sig_res in
+	unify_list (List.map (type_var env) optid) (list_take (List.length optid) ty_res)
+(*        match sg.sig_res with
           | None -> tint (*???*)
           | Some t -> ty_of_typ t in
         begin match optid with
         | None -> ()
         | Some id -> unify (type_var env id) ty_res
-        end
+        end *)
       with Error s ->
         raise (Error (sprintf "In call:\n%s" s))
       end
@@ -270,14 +278,16 @@ let rec type_stmt env blk ret s =
       let tel = type_exprlist env [] el in
       begin try
         unify_list (ty_of_sig_args sg.sig_args) tel;
-        let ty_res =
+        let ty_res = List.map ty_of_typ sg.sig_res in
+	unify_list (List.map (type_var env) optid) ty_res
+(*        let ty_res =
           match sg.sig_res with
           | None -> tint (*???*)
           | Some t -> ty_of_typ t in
         begin match optid with
         | None -> ()
         | Some id -> unify (type_var env id) ty_res
-        end
+        end *)
       with Error s ->
         raise (Error (sprintf "In builtin call:\n%s" s))
       end
@@ -297,17 +307,19 @@ let rec type_stmt env blk ret s =
         raise (Error (sprintf "Bad exit(%d)\n" (Nat.to_int n)))
   | Sswitch(e, cases, deflt) ->
       unify (type_expr env [] e) tint
-  | Sreturn None ->
+(*  | Sreturn None ->
       begin match ret with
       | None -> ()
       | Some tret -> raise (Error ("return without argument"))
-      end
-  | Sreturn (Some e) ->
-      begin match ret with
-      | None -> raise (Error "return with argument")
-      | Some tret -> 
+      end *)
+  | Sreturn (el) ->
+      begin match ret, el with
+      | [], [] -> ()
+      | [], _ -> raise (Error "return with argument")
+      | _, [] -> raise (Error "return without argument")
+      | _, _ -> 
           begin try
-            unify (type_expr env [] e) (ty_of_typ tret)
+            unify_list (type_exprlist env [] el) (List.map ty_of_typ ret)
           with Error s ->
             raise (Error (sprintf "In return:\n%s" s))
           end

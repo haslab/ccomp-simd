@@ -388,7 +388,7 @@ Ltac InvAgree :=
   auto || exact Logic.I ||
   match goal with
   | [ H: False |- _ ] => contradiction
-  | [ H: match ?v with Vundef => _ | Vint _ => _ | Vlong _ => _ | V128 _ => _ | Vfloat _ => _ | Vptr _ _ => _ end |- _ ] => destruct v
+  | [ H: match ?v with Vundef => _ | Vint _ => _ | Vlong _ => _ | Vfloat _ => _ | Vptr _ _  | Vvec _ _ => _ end |- _ ] => destruct v
   end).
 
 (** And immediate, or immediate *)
@@ -781,12 +781,14 @@ Proof.
   change 16 with (Int.size (Int.repr 65535)). apply iagree_eqmod; auto.
 - apply encode_val_inject. rewrite val_inject_id; auto.
 - apply encode_val_inject. rewrite val_inject_id; auto.
-- apply encode_val_inject. rewrite val_inject_id; auto.
 - InvAgree. apply SAME. simpl.
   rewrite <- (Float.bits_of_singleoffloat f).
   rewrite <- (Float.bits_of_singleoffloat f0).
   congruence. 
 - apply encode_val_inject. rewrite val_inject_id; auto.
+(* SIMD *)
+- apply encode_val_inject. rewrite val_inject_id; auto.
+(* eSIMD *)
 Qed.
 
 Lemma store_argument_load_result:

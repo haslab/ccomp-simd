@@ -45,16 +45,16 @@ Proof.
   unfold freg_of; intros. destruct (preg_of r); inv H; auto.
 Qed.
 
-Lemma xreg_of_eq:
-  forall r r', xreg_of r = OK r' -> preg_of r = XR r'.
+Lemma vreg_of_eq:
+  forall r r', vreg_of r = OK r' -> preg_of r = VR r'.
 Proof.
-  unfold xreg_of; intros. destruct (preg_of r); inv H; auto.
+  unfold vreg_of; intros. destruct (preg_of r); inv H; auto.
 Qed.
 
 Lemma preg_of_injective:
   forall r1 r2, preg_of r1 = preg_of r2 -> r1 = r2.
 Proof.
-  destruct r1; destruct r2; simpl; intros; try (reflexivity || discriminate).
+  destruct r1; destruct r2; simpl; intros; reflexivity || discriminate.
 Qed.
 
 Lemma preg_of_data:

@@ -143,7 +143,7 @@ type binary_operator =
 
 type typ =
   | TVoid of attributes
-  | TVecdata of attributes
+  | TVecdata of  attributes
   | TInt of ikind * attributes
   | TFloat of fkind * attributes
   | TPtr of typ * attributes

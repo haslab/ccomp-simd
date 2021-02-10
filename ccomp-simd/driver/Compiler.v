@@ -13,6 +13,7 @@
 (** The whole compiler and its proof of semantic preservation *)
 
 (** Libraries. *)
+Require Import String.
 Require Import Coqlib.
 Require Import Errors.
 Require Import AST.
@@ -71,9 +72,6 @@ Require CleanupLabelsproof.
 Require Stackingproof.
 Require Asmgenproof.
 
-Require MachIR.
-Import Utf8.
-
 (** Pretty-printers (defined in Caml). *)
 Parameter print_Clight: Clight.program -> unit.
 Parameter print_Cminor: Cminor.program -> unit.
@@ -103,57 +101,58 @@ Notation "a @@ b" :=
 Definition print {A: Type} (printer: A -> unit) (prog: A) : A :=
   let unused := printer prog in prog.
 
+Definition time {A B: Type} (name: string) (f: A -> B) : A -> B := f.
+
 (** We define three translation functions for whole programs: one
   starting with a C program, one with a Cminor program, one with an
   RTL program.  The three translations produce Asm programs ready for
   pretty-printing and assembling. *)
 
-Definition mach_of_rtl (f: RTL.program) : res Mach.program :=
+Definition transf_rtl_program (f: RTL.program) : res Asm.program :=
    OK f
    @@ print (print_RTL 0)
-   @@ Tailcall.transf_program
+   @@ time "Tail calls" Tailcall.transf_program
    @@ print (print_RTL 1)
-  @@@ Inlining.transf_program
+  @@@ time "Inlining" Inlining.transf_program
    @@ print (print_RTL 2)
-   @@ Renumber.transf_program
+   @@ time "Renumbering" Renumber.transf_program
    @@ print (print_RTL 3)
-   @@ Constprop.transf_program
+   @@ time "Constant propagation" Constprop.transf_program
    @@ print (print_RTL 4)
-   @@ Renumber.transf_program
+   @@ time "Renumbering" Renumber.transf_program
    @@ print (print_RTL 5)
-  @@@ CSE.transf_program
+  @@@ time "CSE" CSE.transf_program
    @@ print (print_RTL 6)
-  @@@ Deadcode.transf_program
+  @@@ time "Dead code" Deadcode.transf_program
    @@ print (print_RTL 7)
-  @@@ Allocation.transf_program
+  @@@ time "Register allocation" Allocation.transf_program
    @@ print print_LTL
-   @@ Tunneling.tunnel_program
+   @@ time "Branch tunneling" Tunneling.tunnel_program
   @@@ Linearize.transf_program
-   @@ CleanupLabels.transf_program
-  @@@ Stacking.transf_program
-   @@ print print_Mach.
+   @@ time "Label cleanup" CleanupLabels.transf_program
+  @@@ time "Mach generation" Stacking.transf_program
+   @@ print print_Mach
+  @@@ time "Asm generation" Asmgen.transf_program.
 
-Definition transf_rtl_program (f: RTL.program) : res (Asm.program * MachIR.program) :=
-  mach_of_rtl f @@@ (λ m, Asmgen.transf_program m @@ (λ a, (a, MachIR.transl_program m))).
-
-Definition transf_cminor_program (p: Cminor.program) : res _ :=
+Definition transf_cminor_program (p: Cminor.program) : res Asm.program :=
    OK p
    @@ print print_Cminor
-  @@@ Selection.sel_program
-  @@@ RTLgen.transl_program
+  @@@ time "Instruction selection" Selection.sel_program
+  @@@ time "RTL generation" RTLgen.transl_program
   @@@ transf_rtl_program.
 
-Definition transf_clight_program (p: Clight.program) : res _ :=
+Definition transf_clight_program (p: Clight.program) : res Asm.program :=
   OK p 
    @@ print print_Clight
-  @@@ SimplLocals.transf_program
-  @@@ Cshmgen.transl_program
-  @@@ Cminorgen.transl_program
+  @@@ time "Simplification of locals" SimplLocals.transf_program
+   @@ print print_Clight
+  @@@ time "C#minor generation" Cshmgen.transl_program
+  @@@ time "Cminor generation" Cminorgen.transl_program
   @@@ transf_cminor_program.
 
-Definition transf_c_program (p: Csyntax.program) : res _ :=
+Definition transf_c_program (p: Csyntax.program) : res Asm.program :=
   OK p 
-  @@@ SimplExpr.transl_program
+  @@@ time "Clight generation" SimplExpr.transl_program
   @@@ transf_clight_program.
 
 (** Force [Initializers] and [Cexec] to be extracted as well. *)
@@ -194,12 +193,12 @@ These results establish the correctness of the whole compiler! *)
 Theorem transf_rtl_program_correct:
   forall p tp,
   transf_rtl_program p = OK tp ->
-  forward_simulation (RTL.semantics p) (Asm.semantics (fst tp))
-  * backward_simulation (RTL.semantics p) (Asm.semantics (fst tp)).
+  forward_simulation (RTL.semantics p) (Asm.semantics tp)
+  * backward_simulation (RTL.semantics p) (Asm.semantics tp).
 Proof.
   intros.
-  assert (F: forward_simulation (RTL.semantics p) (Asm.semantics (fst tp))).
-  unfold transf_rtl_program, mach_of_rtl in H.
+  assert (F: forward_simulation (RTL.semantics p) (Asm.semantics tp)).
+  unfold transf_rtl_program, time in H.
   repeat rewrite compose_print_identity in H.
   simpl in H.
   set (p1 := Tailcall.transf_program p) in *.
@@ -227,8 +226,7 @@ Proof.
   eapply compose_forward_simulation. apply CleanupLabelsproof.transf_program_correct. 
   eapply compose_forward_simulation. apply Stackingproof.transf_program_correct.
     eexact Asmgenproof.return_address_exists. eassumption.
-    apply Asmgenproof.transf_program_correct; eauto.
-    destruct (Asmgen.transf_program _); inv H; reflexivity.
+  apply Asmgenproof.transf_program_correct; eauto.
   split. auto. 
   apply forward_to_backward_simulation. auto. 
   apply RTL.semantics_receptive.
@@ -238,12 +236,12 @@ Qed.
 Theorem transf_cminor_program_correct:
   forall p tp,
   transf_cminor_program p = OK tp ->
-  forward_simulation (Cminor.semantics p) (Asm.semantics (fst tp))
-  * backward_simulation (Cminor.semantics p) (Asm.semantics (fst tp)).
+  forward_simulation (Cminor.semantics p) (Asm.semantics tp)
+  * backward_simulation (Cminor.semantics p) (Asm.semantics tp).
 Proof.
   intros.
-  assert (F: forward_simulation (Cminor.semantics p) (Asm.semantics (fst tp))).
-  unfold transf_cminor_program in H.
+  assert (F: forward_simulation (Cminor.semantics p) (Asm.semantics tp)).
+  unfold transf_cminor_program, time in H.
   repeat rewrite compose_print_identity in H.
   simpl in H. 
   destruct (Selection.sel_program p) as [p1|] eqn:?; simpl in H; try discriminate.
@@ -261,14 +259,15 @@ Qed.
 Theorem transf_clight_program_correct:
   forall p tp,
   transf_clight_program p = OK tp ->
-  forward_simulation (Clight.semantics1 p) (Asm.semantics (fst tp))
-  * backward_simulation (Clight.semantics1 p) (Asm.semantics (fst tp)).
+  forward_simulation (Clight.semantics1 p) (Asm.semantics tp)
+  * backward_simulation (Clight.semantics1 p) (Asm.semantics tp).
 Proof.
   intros. 
-  assert (F: forward_simulation (Clight.semantics1 p) (Asm.semantics (fst tp))).
-  revert H; unfold transf_clight_program; simpl.
+  assert (F: forward_simulation (Clight.semantics1 p) (Asm.semantics tp)).
+  revert H; unfold transf_clight_program, time; simpl.
   rewrite print_identity.
   caseEq (SimplLocals.transf_program p); simpl; try congruence; intros p0 EQ0.
+  rewrite print_identity.
   caseEq (Cshmgen.transl_program p0); simpl; try congruence; intros p1 EQ1.
   caseEq (Cminorgen.transl_program p1); simpl; try congruence; intros p2 EQ2.
   intros EQ3.
@@ -286,12 +285,12 @@ Qed.
 Theorem transf_cstrategy_program_correct:
   forall p tp,
   transf_c_program p = OK tp ->
-  forward_simulation (Cstrategy.semantics p) (Asm.semantics (fst tp))
-  * backward_simulation (atomic (Cstrategy.semantics p)) (Asm.semantics (fst tp)).
+  forward_simulation (Cstrategy.semantics p) (Asm.semantics tp)
+  * backward_simulation (atomic (Cstrategy.semantics p)) (Asm.semantics tp).
 Proof.
   intros.
-  assert (F: forward_simulation (Cstrategy.semantics p) (Asm.semantics (fst tp))).
-  revert H; unfold transf_c_program; simpl.
+  assert (F: forward_simulation (Cstrategy.semantics p) (Asm.semantics tp)).
+  revert H; unfold transf_c_program, time; simpl.
   caseEq (SimplExpr.transl_program p); simpl; try congruence; intros p0 EQ0.
   intros EQ1.
   eapply compose_forward_simulation. apply SimplExprproof.transl_program_correct. eauto.
@@ -307,7 +306,7 @@ Qed.
 Theorem transf_c_program_correct:
   forall p tp,
   transf_c_program p = OK tp ->
-  backward_simulation (Csem.semantics p) (Asm.semantics (fst tp)).
+  backward_simulation (Csem.semantics p) (Asm.semantics tp).
 Proof.
   intros. 
   apply compose_backward_simulation with (atomic (Cstrategy.semantics p)).

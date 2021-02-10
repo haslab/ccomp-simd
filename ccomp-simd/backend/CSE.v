@@ -480,18 +480,18 @@ Definition transfer (f: function) (approx: PMap.t VA.t) (pc: node) (before: numb
           | EF_external _ _ | EF_malloc | EF_free | EF_inline_asm _ =>
               empty_numbering
           | EF_builtin _ _ _ | EF_vstore _ | EF_vstore_global _ _ _ =>
-              set_unknown (kill_all_loads before) res
+              fold_right (fun r x=>set_unknown x r) (kill_all_loads before) res
           | EF_memcpy sz al =>
-              match args with
-              | rdst :: rsrc :: nil =>
+              match args, res with
+              | rdst :: rsrc :: nil, r::nil =>
                   let app := approx!!pc in
                   let n := kill_loads_after_storebytes app before rdst sz in
-                  set_unknown (add_memcpy app before n rsrc rdst sz) res
-              | _ =>
+                  set_unknown (add_memcpy app before n rsrc rdst sz) r
+              | _, _ =>
                   empty_numbering
               end
           | EF_vload _ | EF_vload_global _ _ _ | EF_annot _ _ | EF_annot_val _ _ =>
-              set_unknown before res
+              fold_right (fun r x=>set_unknown x r) before res
           end
       | Icond cond args ifso ifnot =>
           before

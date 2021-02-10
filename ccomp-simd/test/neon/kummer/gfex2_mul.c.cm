@@ -1,0 +1,378 @@
+extern "__builtin_fabs" = builtin "__builtin_fabs" : float -> float
+extern "__builtin_memcpy_aligned" = builtin "__builtin_memcpy_aligned" :
+         int -> int -> int -> int -> void
+extern "__builtin_annot" = builtin "__builtin_annot" : int -> void
+extern "__builtin_annot_intval" = builtin "__builtin_annot_intval" : int ->
+         int -> int
+extern "__builtin_va_start" = builtin "__builtin_va_start" : int -> void
+extern "__builtin_va_arg" = builtin "__builtin_va_arg" : int -> int -> void
+extern "__builtin_va_copy" = builtin "__builtin_va_copy" : int -> int -> void
+extern "__builtin_va_end" = builtin "__builtin_va_end" : int -> void
+extern "__compcert_va_int32" = extern "__compcert_va_int32" : int -> int
+extern "__compcert_va_int64" = extern "__compcert_va_int64" : int -> long
+extern "__compcert_va_float64" = extern "__compcert_va_float64" : int ->
+         float
+extern "__builtin_bswap" = builtin "__builtin_bswap" : int -> int
+extern "__builtin_bswap32" = builtin "__builtin_bswap32" : int -> int
+extern "__builtin_bswap16" = builtin "__builtin_bswap16" : int -> int
+extern "__builtin_cntlz" = builtin "__builtin_cntlz" : int -> int
+extern "__builtin_fsqrt" = builtin "__builtin_fsqrt" : float -> float
+extern "__builtin_read16_reversed" = builtin "__builtin_read16_reversed" :
+         int -> int
+extern "__builtin_read32_reversed" = builtin "__builtin_read32_reversed" :
+         int -> int
+extern "__builtin_write16_reversed" = builtin "__builtin_write16_reversed" :
+         int -> int -> void
+extern "__builtin_write32_reversed" = builtin "__builtin_write32_reversed" :
+         int -> int -> void
+extern "__builtin_vst1q_u8" = builtin "__builtin_vst1q_u8" : int -> t128 ->
+         void
+extern "__builtin_vld1q_u8" = builtin "__builtin_vld1q_u8" : int -> t128
+extern "__builtin_vmovq_n_u8" = builtin "__builtin_vmovq_n_u8" : int -> t128
+extern "__builtin_vmovq_n_u16" = builtin "__builtin_vmovq_n_u16" : int ->
+         t128
+extern "__builtin_vmovq_n_u32" = builtin "__builtin_vmovq_n_u32" : int ->
+         t128
+extern "__builtin_vmovq_n_u64" = builtin "__builtin_vmovq_n_u64" : long ->
+         t128
+extern "__builtin_vaddq_u8" = builtin "__builtin_vaddq_u8" : t128 -> t128 ->
+         t128
+extern "__builtin_vaddq_u16" = builtin "__builtin_vaddq_u16" : t128 ->
+         t128 -> t128
+extern "__builtin_vaddq_u32" = builtin "__builtin_vaddq_u32" : t128 ->
+         t128 -> t128
+extern "__builtin_vaddq_u64" = builtin "__builtin_vaddq_u64" : t128 ->
+         t128 -> t128
+extern "__builtin_vsubq_u8" = builtin "__builtin_vsubq_u8" : t128 -> t128 ->
+         t128
+extern "__builtin_vsubq_u16" = builtin "__builtin_vsubq_u16" : t128 ->
+         t128 -> t128
+extern "__builtin_vaddq_u8" = builtin "__builtin_vaddq_u8" : t128 -> t128 ->
+         t128
+extern "__builtin_vaddq_u64" = builtin "__builtin_vaddq_u64" : t128 ->
+         t128 -> t128
+extern "__builtin_neon_vld1v16qi" = builtin "__builtin_neon_vld1v16qi" :
+         int -> t128
+extern "__builtin_neon_vst1v16qi" = builtin "__builtin_neon_vst1v16qi" :
+         int -> t128 -> void
+extern "__builtin_neon_vdup_nv2di" = builtin "__builtin_neon_vdup_nv2di" :
+         float -> t128
+extern "__builtin_neon_vget_lowv4si" =
+         builtin "__builtin_neon_vget_lowv4si" : t128 -> float
+extern "__builtin_neon_vget_highv4si" =
+         builtin "__builtin_neon_vget_highv4si" : t128 -> float
+extern "__builtin_neon_vandv16qi" = builtin "__builtin_neon_vandv16qi" :
+         t128 -> t128 -> int -> t128
+extern "__builtin_neon_vmullv2si" = builtin "__builtin_neon_vmullv2si" :
+         float -> float -> int -> t128
+extern "__builtin_neon_vmlalv2si" = builtin "__builtin_neon_vmlalv2si" :
+         t128 -> float -> float -> int -> t128
+extern "__builtin_neon_vaddv2di" = builtin "__builtin_neon_vaddv2di" :
+         t128 -> t128 -> int -> t128
+extern "__builtin_neon_vshl_nv4si" = builtin "__builtin_neon_vshl_nv4si" :
+         t128 -> int -> int -> t128
+extern "__builtin_neon_vshl_nv2di" = builtin "__builtin_neon_vshl_nv2di" :
+         t128 -> int -> int -> t128
+extern "__builtin_neon_vshr_nv2di" = builtin "__builtin_neon_vshr_nv2di" :
+         t128 -> int -> int -> t128
+extern "__builtin_neon_vtrn_u32" = builtin "__builtin_neon_vtrn_u32" :
+         float -> float -> float * float
+extern "__builtin_neon_vtrnq_u32" = builtin "__builtin_neon_vtrnq_u32" :
+         t128 -> t128 -> t128 * t128
+"gfex2_mul"('input_0', 'input_1', 'input_2') : int -> int -> int -> void
+{
+  var 'f0', 'f1', 'f2', '_2f1', '_2f2', 'g0', 'g1', 'g2', 'h0', 'h1', 'h2',
+      'h3', 'h4', 't', 'mask25', 'mask26', 'adr0', 'adr1', 'adr2', 'count',
+      '$185', '$184', '$183', '$182', '$181', '$180', '$179', '$178', '$177',
+      '$176', '$175', '$174', '$173', '$172', '$171', '$170', '$169', '$168',
+      '$167', '$166', '$165', '$164', '$163', '$162', '$161', '$160', '$159',
+      '$158', '$157', '$156', '$155', '$154', '$153', '$152', '$151', '$150',
+      '$149', '$148', '$147', '$146', '$145', '$144', '$143', '$142', '$141',
+      '$140', '$139', '$138', '$137', '$136', '$135', '$134', '$133', '$132',
+      '$131', '$130', '$129', '$128', '$127', '$126', '$125', '$124', '$123',
+      '$122', '$121', '$120', '$119', '$118', '$117', '$116', '$115', '$114',
+      '$113', '$112', '$111', '$110', '$109', '$108', '$107', '$106', '$105',
+      '$104', '$103', '$102', '$101', '$100', '$99', '$98', '$97', '$96',
+      '$95', '$94', '$93', '$92', '$91', '$90', '$89', '$88', '$87', '$86',
+      '$85', '$84', '$83', '$82', '$81', '$80', '$79', '$78', '$77', '$76',
+      '$75', '$74', '$73';
+  'adr0' = 'input_0';
+  'adr1' = 'input_1';
+  'adr2' = 'input_2';
+  '$73' = "__builtin_neon_vdup_nv2di"(floatofintu -1) : float -> t128;
+  'mask25' = '$73';
+  '$74' = "__builtin_neon_vshl_nv4si"('mask25', 7, 0) : t128 -> int -> int ->
+                                                        t128;
+  'mask25' = '$74';
+  '$75' = "__builtin_neon_vshr_nv2di"('mask25', 7, 0) : t128 -> int -> int ->
+                                                        t128;
+  'mask25' = '$75';
+  '$76' = "__builtin_neon_vdup_nv2di"(floatofintu -1) : float -> t128;
+  'mask26' = '$76';
+  '$77' = "__builtin_neon_vshl_nv4si"('mask26', 6, 0) : t128 -> int -> int ->
+                                                        t128;
+  'mask26' = '$77';
+  '$78' = "__builtin_neon_vshr_nv2di"('mask26', 6, 0) : t128 -> int -> int ->
+                                                        t128;
+  'mask26' = '$78';
+  '$79' = "__builtin_neon_vld1v16qi"('adr1') : int -> t128;
+  'f0' = '$79';
+  'adr1' = 'adr1' + 1 * 8;
+  '$80' = "__builtin_neon_vld1v16qi"('adr1') : int -> t128;
+  'f1' = '$80';
+  'adr1' = 'adr1' + 1 * 16;
+  '$81' = "__builtin_neon_vld1v16qi"('adr1') : int -> t128;
+  'f2' = '$81';
+  'adr1' = 'adr1' + 1 * 16;
+  '$82' = "__builtin_neon_vshl_nv2di"('f1', 1, 0) : t128 -> int -> int ->
+                                                    t128;
+  '_2f1' = '$82';
+  '$83' = "__builtin_neon_vshl_nv2di"('f2', 1, 0) : t128 -> int -> int ->
+                                                    t128;
+  '_2f2' = '$83';
+  '$84' = "__builtin_neon_vld1v16qi"('adr2') : int -> t128;
+  'g0' = '$84';
+  'adr2' = 'adr2' + 1 * 8;
+  '$85' = "__builtin_neon_vld1v16qi"('adr2') : int -> t128;
+  'g1' = '$85';
+  'adr2' = 'adr2' + 1 * 16;
+  '$86' = "__builtin_neon_vld1v16qi"('adr2') : int -> t128;
+  'g2' = '$86';
+  'adr2' = 'adr2' + 1 * 16;
+  '$87' = "__builtin_neon_vget_lowv4si"('f0') : t128 -> float;
+  '$88' = "__builtin_neon_vget_lowv4si"('g0') : t128 -> float;
+  '$89' = "__builtin_neon_vmullv2si"('$87', '$88', 0) : float -> float ->
+                                                        int -> t128;
+  'h0' = '$89';
+  '$90' = "__builtin_neon_vget_lowv4si"('f1') : t128 -> float;
+  '$91' = "__builtin_neon_vget_lowv4si"('g0') : t128 -> float;
+  '$92' = "__builtin_neon_vmullv2si"('$90', '$91', 0) : float -> float ->
+                                                        int -> t128;
+  'h1' = '$92';
+  '$93' = "__builtin_neon_vget_highv4si"('f1') : t128 -> float;
+  '$94' = "__builtin_neon_vget_lowv4si"('g0') : t128 -> float;
+  '$95' = "__builtin_neon_vmullv2si"('$93', '$94', 0) : float -> float ->
+                                                        int -> t128;
+  'h2' = '$95';
+  '$96' = "__builtin_neon_vget_lowv4si"('f2') : t128 -> float;
+  '$97' = "__builtin_neon_vget_lowv4si"('g0') : t128 -> float;
+  '$98' = "__builtin_neon_vmullv2si"('$96', '$97', 0) : float -> float ->
+                                                        int -> t128;
+  'h3' = '$98';
+  '$99' = "__builtin_neon_vget_highv4si"('f2') : t128 -> float;
+  '$100' = "__builtin_neon_vget_lowv4si"('g0') : t128 -> float;
+  '$101' = "__builtin_neon_vmullv2si"('$99', '$100', 0) : float -> float ->
+                                                          int -> t128;
+  'h4' = '$101';
+  '$102' = "__builtin_neon_vget_lowv4si"('_2f2') : t128 -> float;
+  '$103' = "__builtin_neon_vget_highv4si"('g1') : t128 -> float;
+  '$104' = "__builtin_neon_vmlalv2si"('h0', '$102', '$103', 0) : t128 ->
+                                                                 float ->
+                                                                 float ->
+                                                                 int -> t128;
+  'h0' = '$104';
+  '$105' = "__builtin_neon_vget_highv4si"('_2f2') : t128 -> float;
+  '$106' = "__builtin_neon_vget_lowv4si"('g1') : t128 -> float;
+  '$107' = "__builtin_neon_vmlalv2si"('h0', '$105', '$106', 0) : t128 ->
+                                                                 float ->
+                                                                 float ->
+                                                                 int -> t128;
+  'h0' = '$107';
+  '$108' = "__builtin_neon_vget_lowv4si"('f0') : t128 -> float;
+  '$109' = "__builtin_neon_vget_lowv4si"('g1') : t128 -> float;
+  '$110' = "__builtin_neon_vmlalv2si"('h1', '$108', '$109', 0) : t128 ->
+                                                                 float ->
+                                                                 float ->
+                                                                 int -> t128;
+  'h1' = '$110';
+  '$111' = "__builtin_neon_vget_highv4si"('f2') : t128 -> float;
+  '$112' = "__builtin_neon_vget_highv4si"('g1') : t128 -> float;
+  '$113' = "__builtin_neon_vmlalv2si"('h1', '$111', '$112', 0) : t128 ->
+                                                                 float ->
+                                                                 float ->
+                                                                 int -> t128;
+  'h1' = '$113';
+  '$114' = "__builtin_neon_vget_lowv4si"('f0') : t128 -> float;
+  '$115' = "__builtin_neon_vget_highv4si"('g1') : t128 -> float;
+  '$116' = "__builtin_neon_vmlalv2si"('h2', '$114', '$115', 0) : t128 ->
+                                                                 float ->
+                                                                 float ->
+                                                                 int -> t128;
+  'h2' = '$116';
+  '$117' = "__builtin_neon_vget_lowv4si"('_2f1') : t128 -> float;
+  '$118' = "__builtin_neon_vget_lowv4si"('g1') : t128 -> float;
+  '$119' = "__builtin_neon_vmlalv2si"('h2', '$117', '$118', 0) : t128 ->
+                                                                 float ->
+                                                                 float ->
+                                                                 int -> t128;
+  'h2' = '$119';
+  '$120' = "__builtin_neon_vget_highv4si"('f1') : t128 -> float;
+  '$121' = "__builtin_neon_vget_lowv4si"('g1') : t128 -> float;
+  '$122' = "__builtin_neon_vmlalv2si"('h3', '$120', '$121', 0) : t128 ->
+                                                                 float ->
+                                                                 float ->
+                                                                 int -> t128;
+  'h3' = '$122';
+  '$123' = "__builtin_neon_vget_lowv4si"('f1') : t128 -> float;
+  '$124' = "__builtin_neon_vget_highv4si"('g1') : t128 -> float;
+  '$125' = "__builtin_neon_vmlalv2si"('h3', '$123', '$124', 0) : t128 ->
+                                                                 float ->
+                                                                 float ->
+                                                                 int -> t128;
+  'h3' = '$125';
+  '$126' = "__builtin_neon_vget_highv4si"('f1') : t128 -> float;
+  '$127' = "__builtin_neon_vget_highv4si"('g1') : t128 -> float;
+  '$128' = "__builtin_neon_vmlalv2si"('h4', '$126', '$127', 0) : t128 ->
+                                                                 float ->
+                                                                 float ->
+                                                                 int -> t128;
+  'h4' = '$128';
+  '$129' = "__builtin_neon_vget_lowv4si"('_2f2') : t128 -> float;
+  '$130' = "__builtin_neon_vget_lowv4si"('g1') : t128 -> float;
+  '$131' = "__builtin_neon_vmlalv2si"('h4', '$129', '$130', 0) : t128 ->
+                                                                 float ->
+                                                                 float ->
+                                                                 int -> t128;
+  'h4' = '$131';
+  '$132' = "__builtin_neon_vget_lowv4si"('_2f1') : t128 -> float;
+  '$133' = "__builtin_neon_vget_highv4si"('g2') : t128 -> float;
+  '$134' = "__builtin_neon_vmlalv2si"('h0', '$132', '$133', 0) : t128 ->
+                                                                 float ->
+                                                                 float ->
+                                                                 int -> t128;
+  'h0' = '$134';
+  '$135' = "__builtin_neon_vget_highv4si"('_2f1') : t128 -> float;
+  '$136' = "__builtin_neon_vget_lowv4si"('g2') : t128 -> float;
+  '$137' = "__builtin_neon_vmlalv2si"('h0', '$135', '$136', 0) : t128 ->
+                                                                 float ->
+                                                                 float ->
+                                                                 int -> t128;
+  'h0' = '$137';
+  '$138' = "__builtin_neon_vget_lowv4si"('_2f2') : t128 -> float;
+  '$139' = "__builtin_neon_vget_lowv4si"('g2') : t128 -> float;
+  '$140' = "__builtin_neon_vmlalv2si"('h1', '$138', '$139', 0) : t128 ->
+                                                                 float ->
+                                                                 float ->
+                                                                 int -> t128;
+  'h1' = '$140';
+  '$141' = "__builtin_neon_vget_highv4si"('f1') : t128 -> float;
+  '$142' = "__builtin_neon_vget_highv4si"('g2') : t128 -> float;
+  '$143' = "__builtin_neon_vmlalv2si"('h1', '$141', '$142', 0) : t128 ->
+                                                                 float ->
+                                                                 float ->
+                                                                 int -> t128;
+  'h1' = '$143';
+  '$144' = "__builtin_neon_vget_lowv4si"('_2f2') : t128 -> float;
+  '$145' = "__builtin_neon_vget_highv4si"('g2') : t128 -> float;
+  '$146' = "__builtin_neon_vmlalv2si"('h2', '$144', '$145', 0) : t128 ->
+                                                                 float ->
+                                                                 float ->
+                                                                 int -> t128;
+  'h2' = '$146';
+  '$147' = "__builtin_neon_vget_highv4si"('_2f2') : t128 -> float;
+  '$148' = "__builtin_neon_vget_lowv4si"('g2') : t128 -> float;
+  '$149' = "__builtin_neon_vmlalv2si"('h2', '$147', '$148', 0) : t128 ->
+                                                                 float ->
+                                                                 float ->
+                                                                 int -> t128;
+  'h2' = '$149';
+  '$150' = "__builtin_neon_vget_lowv4si"('f0') : t128 -> float;
+  '$151' = "__builtin_neon_vget_lowv4si"('g2') : t128 -> float;
+  '$152' = "__builtin_neon_vmlalv2si"('h3', '$150', '$151', 0) : t128 ->
+                                                                 float ->
+                                                                 float ->
+                                                                 int -> t128;
+  'h3' = '$152';
+  '$153' = "__builtin_neon_vget_highv4si"('f2') : t128 -> float;
+  '$154' = "__builtin_neon_vget_highv4si"('g2') : t128 -> float;
+  '$155' = "__builtin_neon_vmlalv2si"('h3', '$153', '$154', 0) : t128 ->
+                                                                 float ->
+                                                                 float ->
+                                                                 int -> t128;
+  'h3' = '$155';
+  '$156' = "__builtin_neon_vget_lowv4si"('f0') : t128 -> float;
+  '$157' = "__builtin_neon_vget_highv4si"('g2') : t128 -> float;
+  '$158' = "__builtin_neon_vmlalv2si"('h4', '$156', '$157', 0) : t128 ->
+                                                                 float ->
+                                                                 float ->
+                                                                 int -> t128;
+  'h4' = '$158';
+  '$159' = "__builtin_neon_vget_lowv4si"('_2f1') : t128 -> float;
+  '$160' = "__builtin_neon_vget_lowv4si"('g2') : t128 -> float;
+  '$161' = "__builtin_neon_vmlalv2si"('h4', '$159', '$160', 0) : t128 ->
+                                                                 float ->
+                                                                 float ->
+                                                                 int -> t128;
+  'h4' = '$161';
+  '$162' = "__builtin_neon_vshr_nv2di"('h0', 26, 0) : t128 -> int -> int ->
+                                                      t128;
+  't' = '$162';
+  '$163' = "__builtin_neon_vaddv2di"('h1', 't', 0) : t128 -> t128 -> int ->
+                                                     t128;
+  'h1' = '$163';
+  '$164' = "__builtin_neon_vandv16qi"('h0', 'mask26', 0) : t128 -> t128 ->
+                                                           int -> t128;
+  'h0' = '$164';
+  '$165' = "__builtin_neon_vshr_nv2di"('h1', 25, 0) : t128 -> int -> int ->
+                                                      t128;
+  't' = '$165';
+  '$166' = "__builtin_neon_vaddv2di"('h2', 't', 0) : t128 -> t128 -> int ->
+                                                     t128;
+  'h2' = '$166';
+  '$167' = "__builtin_neon_vandv16qi"('h1', 'mask25', 0) : t128 -> t128 ->
+                                                           int -> t128;
+  'h1' = '$167';
+  '$168' = "__builtin_neon_vshr_nv2di"('h2', 26, 0) : t128 -> int -> int ->
+                                                      t128;
+  't' = '$168';
+  '$169' = "__builtin_neon_vaddv2di"('h3', 't', 0) : t128 -> t128 -> int ->
+                                                     t128;
+  'h3' = '$169';
+  '$170' = "__builtin_neon_vandv16qi"('h2', 'mask26', 0) : t128 -> t128 ->
+                                                           int -> t128;
+  'h2' = '$170';
+  '$171' = "__builtin_neon_vshr_nv2di"('h3', 25, 0) : t128 -> int -> int ->
+                                                      t128;
+  't' = '$171';
+  '$172' = "__builtin_neon_vaddv2di"('h4', 't', 0) : t128 -> t128 -> int ->
+                                                     t128;
+  'h4' = '$172';
+  '$173' = "__builtin_neon_vandv16qi"('h3', 'mask25', 0) : t128 -> t128 ->
+                                                           int -> t128;
+  'h3' = '$173';
+  '$174' = "__builtin_neon_vshr_nv2di"('h4', 25, 0) : t128 -> int -> int ->
+                                                      t128;
+  't' = '$174';
+  '$175' = "__builtin_neon_vaddv2di"('h0', 't', 0) : t128 -> t128 -> int ->
+                                                     t128;
+  'h0' = '$175';
+  '$176' = "__builtin_neon_vandv16qi"('h4', 'mask25', 0) : t128 -> t128 ->
+                                                           int -> t128;
+  'h4' = '$176';
+  '$177' = "__builtin_neon_vshr_nv2di"('h0', 26, 0) : t128 -> int -> int ->
+                                                      t128;
+  't' = '$177';
+  '$178' = "__builtin_neon_vaddv2di"('h1', 't', 0) : t128 -> t128 -> int ->
+                                                     t128;
+  'h1' = '$178';
+  '$179' = "__builtin_neon_vandv16qi"('h0', 'mask26', 0) : t128 -> t128 ->
+                                                           int -> t128;
+  'h0' = '$179';
+  '$180' = "__builtin_neon_vget_lowv4si"('h0') : t128 -> float;
+  '$181' = "__builtin_neon_vget_highv4si"('h0') : t128 -> float;
+  '$180', '$181' = "__builtin_neon_vtrn_u32"('$180', '$181') : float -> float -> float * float;
+  'h1', 'h2' = "__builtin_neon_vtrnq_u32"('h1', 'h2') : t128 -> t128 -> t128 * t128;
+  '$182' = "__builtin_neon_vget_lowv4si"('h1') : t128 -> float;
+  '$183' = "__builtin_neon_vget_highv4si"('h1') : t128 -> float;
+  '$182', '$183' = "__builtin_neon_vtrn_u32"('$182', '$183') : float -> float -> float * float;
+  'h3', 'h4' = "__builtin_neon_vtrnq_u32"('h3', 'h4') : t128 -> t128 -> t128 * t128;
+  '$184' = "__builtin_neon_vget_lowv4si"('h3') : t128 -> float;
+  '$185' = "__builtin_neon_vget_highv4si"('h3') : t128 -> float;
+  '$184', '$185' = "__builtin_neon_vtrn_u32"('$184', '$185') : float -> float -> float * float;
+  "__builtin_neon_vst1v16qi"('adr0', 'h0') : int -> t128 -> int;
+  'adr0' = 'adr0' + 1 * 8;
+  "__builtin_neon_vst1v16qi"('adr0', 'h1') : int -> t128 -> int;
+  'adr0' = 'adr0' + 1 * 16;
+  "__builtin_neon_vst1v16qi"('adr0', 'h3') : int -> t128 -> int;
+  'adr0' = 'adr0' + 1 * 16;
+}

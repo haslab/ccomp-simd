@@ -159,6 +159,19 @@ Proof.
   rewrite Regmap.gso. auto. xomega. 
 Qed.
 
+Lemma agree_set_regs:
+  forall F ctx rs rs' r v v',
+  agree_regs F ctx rs rs' ->
+  val_list_inject F v v' ->
+  Ple_all r ctx.(mreg) ->
+  agree_regs F ctx (regmap_setlist r v Vundef rs) (regmap_setlist (sregs ctx r) v' Vundef rs').
+Proof.
+  induction r; simpl; intros; auto.
+  destruct (Ple_cons_all _ _ _ H1) as [H1A H1B].
+  destruct v. inv H0. apply agree_set_reg; auto.
+  inv H0. apply agree_set_reg; auto.
+Qed.
+
 Lemma agree_set_reg_undef:
   forall F ctx rs rs' r v',
   agree_regs F ctx rs rs' ->
@@ -180,6 +193,38 @@ Proof.
   rewrite Regmap.gsspec. 
   destruct (peq r0 r). subst r0. auto. auto.
   rewrite Regmap.gsspec. destruct (peq r0 r); auto. 
+Qed.
+
+Lemma agree_set_regs_undef':
+  forall F ctx rs rs' r,
+  agree_regs F ctx rs rs' ->
+  agree_regs F ctx (regmap_setlist r nil Vundef rs) rs'.
+Proof.
+induction r; simpl; intros; auto.
+apply agree_set_reg_undef'; apply IHr; auto.
+Qed.
+
+(** a variant of [regmap_setlist] more suited for reasoning
+  about [tr_move]                                            *)
+Fixpoint regmap_setlist'
+  {A: Type} (rl: list reg) (vl: list A) (rs: Regmap.t A) : Regmap.t A :=
+match rl, vl with
+| r::rl', v::vl' => Regmap.set r v (regmap_setlist' rl' vl' rs)
+| _, _ => rs
+end.
+
+Lemma agree_set_regs':
+  forall F ctx rs rs' r v v',
+  agree_regs F ctx rs rs' ->
+  val_list_inject F v v' ->
+  Ple_all r ctx.(mreg) ->
+  agree_regs F ctx rs rs' ->
+  agree_regs F ctx (regmap_setlist r v Vundef rs) (regmap_setlist' (sregs ctx r) v' rs').
+Proof.
+  induction r; simpl; intros; auto.
+  destruct (Ple_cons_all _ _ _ H1) as [H1A H1B].
+  destruct v. inv H0. apply agree_set_reg_undef'. apply agree_set_regs_undef'. auto.
+  inv H0. apply agree_set_reg; auto.
 Qed.
 
 Lemma agree_regs_invariant:
@@ -242,6 +287,7 @@ Proof.
 (* rdsts = a :: rdsts *)
   inv H2. inv H0. 
   exists rs1; split. apply star_refl. split. apply agree_regs_init. auto.
+
   simpl in H0. inv H0.
   exploit IHrdsts; eauto. intros [rs2 [A [B C]]].
   exists (rs2#(sreg ctx2 a) <- (rs2#(sreg ctx1 b1))).
@@ -252,6 +298,53 @@ Proof.
   intros. rewrite Regmap.gso. auto. apply sym_not_equal. eapply sreg_below_diff; eauto.
   destruct H2; discriminate.
 Qed.
+
+Lemma regmap_gso_setlist': forall r l (v:list val) rs,
+  ~In r l ->  (regmap_setlist' l v rs) # r = rs # r.
+Proof.
+induction l; simpl; intros; auto.
+destruct v; auto.
+case (peq a r); intro Hr.
+ subst; elim H; left; reflexivity.
+rewrite Regmap.gso; auto.
+Qed.
+
+Lemma context_below_list:
+  forall (ctx1 ctx2 : context) (l : list positive) (r: reg),
+  context_below ctx1 ctx2 ->
+  Ple_all l (mreg ctx1) -> ~In (sreg ctx2 r) (sregs ctx1 l).
+Proof.
+intros.
+unfold sregs; red; intro.
+rewrite in_map_iff in H1. destruct H1 as [r' [Ha Hb]].
+eapply context_below_diff; [apply H| |apply Ha].
+apply (Ple_all_forall _ _ H0 r' Hb).
+Qed.
+
+Lemma tr_moves_ret_regs:
+  forall stk f sp m ctx1 ctx2, context_below ctx1 ctx2 ->
+  forall rdsts rsrcs pc1 pc2 rs1 ,
+  Ple_all rdsts ctx1.(mreg) ->                                 
+  tr_moves f.(fn_code) pc1 (sregs ctx2 rsrcs) (sregs ctx1 rdsts) pc2 ->
+  star step tge (State stk f sp pc1 rs1 m)
+       E0 (State stk f sp pc2 (regmap_setlist' (sregs ctx1 rdsts) (rs1 ## (sregs ctx2 rsrcs)) rs1) m).
+Proof.
+  induction rdsts; simpl; intros.
+  - inv H1. apply star_refl.
+  - inv H1; subst; simpl.
+    destruct rsrcs; [inv H2|simpl in H2].
+    * inv H2.
+      apply Ple_cons_all in H0; destruct H0 as [H0A H0B].
+      eapply star_right.
+      + apply IHrdsts. apply H0B. apply H6.
+      + eapply exec_Iop; eauto. simpl.
+        f_equal. apply regmap_gso_setlist'.
+        apply context_below_list; auto.
+      + traceEq.
+    * destruct H2 as [H2|H2]; [| inv H2].
+      rewrite H2; simpl. apply star_refl.
+Qed.
+
 
 (** ** Memory invariants *)
 
@@ -410,11 +503,11 @@ Inductive match_stacks (F: meminj) (m m': mem):
         (PRIV: range_private F m m' sp' (ctx.(dstk) + ctx.(mstk)) f'.(fn_stacksize))
         (SSZ1: 0 <= f'.(fn_stacksize) < Int.max_unsigned)
         (SSZ2: forall ofs, Mem.perm m' sp' ofs Max Nonempty -> 0 <= ofs <= f'.(fn_stacksize))
-        (RES: Ple res ctx.(mreg))
+        (RES: Ple_all res ctx.(mreg))
         (BELOW: Plt sp' bound),
       match_stacks F m m'
                    (Stackframe res f (Vptr sp Int.zero) pc rs :: stk)
-                   (Stackframe (sreg ctx res) f' (Vptr sp' Int.zero) (spc ctx pc) rs' :: stk')
+                   (Stackframe (sregs ctx res) f' (Vptr sp' Int.zero) (spc ctx pc) rs' :: stk')
                    bound
   | match_stacks_untailcall: forall stk res f' sp' rpc rs' stk' bound ctx
         (MS: match_stacks_inside F m m' stk stk' f' ctx sp' rs')
@@ -441,8 +534,8 @@ with match_stacks_inside (F: meminj) (m m': mem):
         (AG: agree_regs F ctx' rs rs')
         (SP: F sp = Some(sp', ctx'.(dstk)))
         (PAD: range_private F m m' sp' (ctx'.(dstk) + ctx'.(mstk)) ctx.(dstk))
-        (RES: Ple res ctx'.(mreg))
-        (RET: ctx.(retinfo) = Some (spc ctx' pc, sreg ctx' res))
+        (RES: Ple_all res ctx'.(mreg))
+        (RET: ctx.(retinfo) = Some (spc ctx' pc, sregs ctx' res))
         (BELOW: context_below ctx' ctx)
         (SBELOW: context_stack_call ctx' ctx),
       match_stacks_inside F m m' (Stackframe res f (Vptr sp Int.zero) pc rs :: stk)
@@ -600,6 +693,32 @@ Proof.
   intros. apply Regmap.gso. zify. unfold sreg; rewrite shiftpos_eq. xomega.
 Qed.
 
+Lemma match_stacks_inside_set_regs:
+  forall F m m' stk stk' f' ctx sp' rs' r v, 
+  match_stacks_inside F m m' stk stk' f' ctx sp' rs' ->
+  match_stacks_inside F m m' stk stk' f' ctx sp' (regmap_setlist (sregs ctx r) v Vundef rs').
+Proof.
+  induction r; simpl; intros; auto.
+  destruct v.
+    apply match_stacks_inside_set_reg; apply IHr; auto.
+  apply match_stacks_inside_set_reg; apply IHr; auto.
+(*
+  intros. eapply match_stacks_inside_invariant; eauto. 
+  intros. apply Regmap.gso. zify. unfold sreg; rewrite shiftpos_eq. xomega.
+*)
+Qed.
+
+Lemma match_stacks_inside_set_regs':
+  forall F m m' stk stk' f' ctx sp' rs' r v, 
+  match_stacks_inside F m m' stk stk' f' ctx sp' rs' ->
+  match_stacks_inside F m m' stk stk' f' ctx sp' (regmap_setlist' (sregs ctx r) v rs').
+Proof.
+  induction r; simpl; intros; auto.
+  destruct v.
+    auto. 
+  apply match_stacks_inside_set_reg; apply IHr; auto.
+Qed.
+
 (** Preservation by a memory store *)
 
 Lemma match_stacks_inside_store:
@@ -676,32 +795,21 @@ Proof.
     destruct (zle sz 1). omegaContradiction.
     destruct (zle sz 2). auto. 
     destruct (zle sz 4). apply Zdivides_trans with 4; auto. exists 2; auto.
-    destruct (zle sz 8). apply Zdivides_trans with 8; auto. exists 4; auto.
     apply Zdivides_trans with 8; auto. exists 4; auto.
-    apply Zdivides_trans with 16; auto. exists 2; auto.
   assert (4 <= sz -> (4 | n)). intros.
     destruct (zle sz 1). omegaContradiction.
     destruct (zle sz 2). omegaContradiction.
     destruct (zle sz 4). auto.
-    destruct (zle sz 8). apply Zdivides_trans with 8; auto. exists 2; auto.
     apply Zdivides_trans with 8; auto. exists 2; auto.
-    apply Zdivides_trans with 16; auto. exists 2; auto.
   assert (8 <= sz -> (8 | n)). intros.
     destruct (zle sz 1). omegaContradiction.
     destruct (zle sz 2). omegaContradiction.
     destruct (zle sz 4). omegaContradiction.
-    destruct (zle sz 8). auto.
-    apply Zdivides_trans with 16; auto. exists 2; auto.
-  assert (16 <= sz -> (16 | n)). intros.
-    destruct (zle sz 1). omegaContradiction.
-    destruct (zle sz 2). omegaContradiction.
-    destruct (zle sz 4). omegaContradiction.
-    destruct (zle sz 8). omegaContradiction.
     auto.
   destruct chunk; simpl in *; auto.
   apply Zone_divide.
   apply Zone_divide.
-  apply H2; omega.
+  apply H3; omega.
 Qed.
 
 (** Preservation by external calls *)
@@ -823,10 +931,24 @@ Inductive match_states: state -> state -> Prop :=
                    (State stk' f' (Vptr sp' Int.zero) pc' rs' m')
   | match_return_states: forall stk v m stk' v' m' F
         (MS: match_stacks F m m' stk stk' (Mem.nextblock m'))
-        (VINJ: val_inject F v v')
+        (VINJ: val_list_inject F v v')
         (MINJ: Mem.inject F m m'),
       match_states (Returnstate stk v m)
                    (Returnstate stk' v' m')
+  | match_return_regular_states: forall stk v m stk' f' sp' rs' m' F ctx pc' or (*rinfo*) rnode rregs pc1
+        (MS: match_stacks_inside F m m' stk stk' f' ctx sp' rs')
+        (RET: ctx.(retinfo) = Some (rnode,rregs))
+        (AT: f'.(fn_code)!pc' = Some(Inop pc1))
+        (MOVES: tr_moves f'.(fn_code) pc1 (sregs ctx or) rregs rnode)
+        (VINJ: val_list_inject F v rs'##(sregs ctx or))
+        (MINJ: Mem.inject F m m')
+        (VB: Mem.valid_block m' sp')
+        (PRIV: range_private F m m' sp' ctx.(dstk) f'.(fn_stacksize))
+        (SSZ1: 0 <= f'.(fn_stacksize) < Int.max_unsigned)
+        (SSZ2: forall ofs, Mem.perm m' sp' ofs Max Nonempty -> 0 <= ofs <= f'.(fn_stacksize)),
+      match_states (Returnstate stk v m)
+                   (State stk' f' (Vptr sp' Int.zero) pc' rs' m').
+(*
   | match_return_regular_states: forall stk v m stk' f' sp' rs' m' F ctx pc' or rinfo
         (MS: match_stacks_inside F m m' stk stk' f' ctx sp' rs')
         (RET: ctx.(retinfo) = Some rinfo)
@@ -839,6 +961,7 @@ Inductive match_states: state -> state -> Prop :=
         (SSZ2: forall ofs, Mem.perm m' sp' ofs Max Nonempty -> 0 <= ofs <= f'.(fn_stacksize)),
       match_states (Returnstate stk v m)
                    (State stk' f' (Vptr sp' Int.zero) pc' rs' m').
+ *)
 
 (** ** Forward simulation *)
 
@@ -1020,12 +1143,12 @@ Proof.
     eapply external_call_symbols_preserved; eauto. 
     exact symbols_preserved. exact varinfo_preserved.
   econstructor.
-    eapply match_stacks_inside_set_reg. 
+    eapply match_stacks_inside_set_regs. 
     eapply match_stacks_inside_extcall with (F1 := F) (F2 := F1) (m1 := m) (m1' := m'0); eauto.
     intros; eapply external_call_max_perm; eauto. 
     intros; eapply external_call_max_perm; eauto. 
   auto. 
-  eapply agree_set_reg. eapply agree_regs_incr; eauto. auto. auto. 
+  eapply agree_set_regs. eapply agree_regs_incr; eauto. auto. auto. 
   apply J; auto.
   auto. 
   eapply external_call_valid_block; eauto. 
@@ -1072,7 +1195,8 @@ Proof.
     intros. eapply Mem.perm_free_1; eauto. 
     intros. eapply Mem.perm_free_3; eauto.
   erewrite Mem.nextblock_free; eauto. red in VB; xomega.
-  destruct or; simpl. apply agree_val_reg; auto. auto.
+  (*destruct or; simpl.*)
+  apply agree_val_regs; auto.
   eapply Mem.free_right_inject; eauto. eapply Mem.free_left_inject; eauto.
   (* show that no valid location points into the stack block being freed *)
   intros. inversion FB; subst.
@@ -1087,9 +1211,9 @@ Proof.
   econstructor; eauto.
   eapply match_stacks_inside_invariant; eauto. 
     intros. eapply Mem.perm_free_3; eauto.
-  destruct or; simpl. apply agree_val_reg; auto. auto.
+  (*destruct or; simpl.*) apply agree_val_regs; auto.
   eapply Mem.free_left_inject; eauto.
-  inv FB. rewrite H4 in PRIV. eapply range_private_free_left; eauto. 
+  inv FB. rewrite H5 in PRIV. eapply range_private_free_left; eauto. 
 
 (* internal function, not inlined *)
   assert (A: exists f', tr_function fenv f f' /\ fd' = Internal f'). 
@@ -1187,8 +1311,8 @@ Proof.
   left; econstructor; split.
   eapply plus_one. eapply exec_return.
   econstructor; eauto. 
-  apply match_stacks_inside_set_reg; auto. 
-  apply agree_set_reg; auto.
+  apply match_stacks_inside_set_regs; auto. 
+  apply agree_set_regs; auto.
   (* untailcall case *)
   inv MS; try congruence.
   rewrite RET in RET0; inv RET0.
@@ -1200,9 +1324,9 @@ Proof.
   left; econstructor; split.
   eapply plus_one. eapply exec_return.
   eapply match_regular_states. 
-  eapply match_stacks_inside_set_reg; eauto.
+  eapply match_stacks_inside_set_regs; eauto.
   auto. 
-  apply agree_set_reg; auto.
+  apply agree_set_regs; auto.
   auto. auto. auto.
   red; intros. destruct (zlt ofs (dstk ctx)). apply PAD; omega. apply PRIV; omega.
   auto. auto. 
@@ -1212,15 +1336,26 @@ Proof.
   unfold inline_return in AT. 
   assert (PRIV': range_private F m m' sp' (dstk ctx' + mstk ctx') f'.(fn_stacksize)).
     red; intros. destruct (zlt ofs (dstk ctx)). apply PAD. omega. apply PRIV. omega.
-  destruct or.
+(*  destruct or.*)
   (* with a result *)
   left; econstructor; split. 
+
+  eapply plus_left. eapply exec_Inop; eauto.
+  eapply tr_moves_ret_regs; eauto. auto.
+
+  econstructor;  eauto.
+
+  apply match_stacks_inside_set_regs'; auto.
+  apply agree_set_regs'; auto.
+
+(* 
   eapply plus_one. eapply exec_Iop; eauto. simpl. reflexivity. 
   econstructor; eauto. apply match_stacks_inside_set_reg; auto. apply agree_set_reg; auto.
   (* without a result *)
   left; econstructor; split. 
   eapply plus_one. eapply exec_Inop; eauto.
   econstructor; eauto. subst vres. apply agree_set_reg_undef'; auto.
+*)
 Qed.
 
 Lemma transf_initial_states:
@@ -1252,7 +1387,7 @@ Lemma transf_final_states:
   match_states st1 st2 -> final_state st1 r -> final_state st2 r.
 Proof.
   intros. inv H0. inv H.
-  exploit match_stacks_empty; eauto. intros EQ; subst. inv VINJ. constructor.
+  exploit match_stacks_empty; eauto. intros EQ; subst. inv VINJ. inv H3. inv H1. constructor.
   exploit match_stacks_inside_empty; eauto. intros [A B]. congruence. 
 Qed.
 

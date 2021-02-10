@@ -26,6 +26,8 @@ open Ctypes
 open Cop
 open Csyntax
 
+open Builtindata
+
 let name_unop = function
   | Onotbool -> "!"
   | Onotint  -> "~"
@@ -197,8 +199,7 @@ let print_typed_value p v ty =
       fprintf p "%LuLLU" (camlint64_of_coqint n)
   | Vlong n, _ ->
       fprintf p "%LdLL" (camlint64_of_coqint n)
-  | V128 n, _ ->
-    fprintf p "%s" (camlstring_of_coqstring (PrintPos.string_of_z n))
+  | Vvec _, _ -> assert false (* we do not have literals of tvecdata *)
   | Vptr(b, ofs), _ ->
       fprintf p "<ptr%a>" !print_pointer_hook (b, ofs)
   | Vundef, _ ->
@@ -209,8 +210,13 @@ let print_value p v = print_typed_value p v Tvoid
 let rec print_imms p imms =
   match imms with
   | [] -> ()
-  | [n] -> fprintf p "%luU" (camlint_of_coqint n)
-  | (n::ns) -> fprintf p "%luU, " (camlint_of_coqint n); print_imms p ns
+  | [n] -> fprintf p "%LuU" n (*camlint_of_coqint n*)
+  | (n::ns) -> fprintf p "%LuU, " n (*camlint_of_coqint n*); print_imms p ns
+
+let print_simd_data p data = 
+  match data with
+  | None -> ()
+  | Some blt -> fprintf p "<%a>" print_imms (blt.blt_immargs)
 
 let rec expr p (prec, e) =
   let (prec', assoc) = precedence e in
@@ -278,9 +284,9 @@ let rec expr p (prec, e) =
                 (extern_atom txt) exprlist (false, args)
   | Ebuiltin(EF_external(id, sg), _, args, _) ->
       fprintf p "%s@[<hov 1>(%a)@]" (extern_atom id) exprlist (true, args)
-  | Ebuiltin(EF_builtin(id,imms,sg),_,args,_) ->
+  | Ebuiltin(EF_builtin(id,data,sg),_,args,_) ->
      fprintf p "%s<%a>@[<hov 1>(%a)@]" (extern_atom id)
-	     print_imms imms exprlist (true,args)
+	     print_simd_data data exprlist (true,args)
   | Ebuiltin(_, _, args, _) ->
       fprintf p "<unknown builtin>@[<hov 1>(%a)@]" exprlist (true, args)
   | Eparen(a1, ty) ->

@@ -134,7 +134,12 @@ let rec expr p (prec, e) =
   | Econst(Ointconst n) ->
       fprintf p "%ld" (camlint_of_coqint n)
   | Econst(Ofloatconst f) ->
-      fprintf p "%F" (camlfloat_of_coqfloat f)
+     let fv = camlfloat_of_coqfloat f in
+     if (fv = float_of_string (string_of_float fv))
+     then 
+      fprintf p "%s" (string_of_float fv)
+     else
+      fprintf p "0.0x%Lx" (camlint64_of_coqfloat f)
   | Econst(Olongconst n) ->
       fprintf p "%LdLL" (camlint64_of_coqint n)
   | Econst(Oaddrsymbol(id, ofs)) ->
@@ -171,15 +176,18 @@ let name_of_type = function
   | Tfloat -> "float"
   | Tlong -> "long"
   | Tsingle -> "single"
-  | T128 -> "__t128"
+  | Tvec _ -> "t128"
+
+let rec print_type_tuple p = function
+  | [] -> fprintf p "void"
+  | x::[] -> fprintf p "%s" (name_of_type x)
+  | x::xs -> fprintf p "%s * " (name_of_type x); print_type_tuple p xs
 
 let print_sig p sg =
   List.iter
     (fun t -> fprintf p "%s ->@ " (name_of_type t))
     sg.sig_args;
-  match sg.sig_res with
-  | None -> fprintf p "void"
-  | Some ty -> fprintf p "%s" (name_of_type ty)
+  print_type_tuple p sg.sig_res
 
 let rec just_skips s =
   match s with
@@ -187,6 +195,13 @@ let rec just_skips s =
   | Sseq(s1,s2) -> just_skips s1 && just_skips s2
   | _ -> false
 
+let rec print_varlist p (vars, first) =
+  match vars with
+  | [] -> ()
+  | v1 :: vl ->
+      if not first then fprintf p ",@ ";
+      fprintf p "%s" (ident_name v1);
+      print_varlist p (vl, false)
 
 (* Statements *)
 
@@ -199,14 +214,14 @@ let rec print_stmt p s =
   | Sstore(chunk, a1, a2) ->
       fprintf p "@[<hv 2>%s[%a] =@ %a;@]"
               (name_of_chunk chunk) print_expr a1 print_expr a2
-  | Scall(None, sg, e1, el) ->
+  | Scall([], sg, e1, el) ->
       fprintf p "@[<hv 2>%a@,(@[<hov 0>%a@])@ : @[<hov 0>%a@];@]"
                 print_expr e1
                 print_expr_list (true, el)
                 print_sig sg
-  | Scall(Some id, sg, e1, el) ->
-      fprintf p "@[<hv 2>%s =@ %a@,(@[<hov 0>%a@])@] : @[<hov 0>%a;@]"
-                (ident_name id)
+  | Scall(ids, sg, e1, el) ->
+      fprintf p "@[<hv 2>%a =@ %a@,(@[<hov 0>%a@])@] : @[<hov 0>%a;@]"
+                print_varlist (ids,true)
                 print_expr e1
                 print_expr_list (true, el)
                 print_sig sg
@@ -215,14 +230,14 @@ let rec print_stmt p s =
                 print_expr e1
                 print_expr_list (true, el)
                 print_sig sg
-  | Sbuiltin(None, ef, el) ->
+  | Sbuiltin([], ef, el) ->
       fprintf p "@[<hv 2>builtin %s@,(@[<hov 0>%a@])@ : @[<hov 0>%a@];@]"
                 (name_of_external ef)
                 print_expr_list (true, el)
 	        print_sig (ef_sig ef)
-  | Sbuiltin(Some id, ef, el) ->
-      fprintf p "@[<hv 2>%s =@ builtin %s@,(@[<hov 0>%a@]) : @[<hov 0>%a@];@]" 
-                (ident_name id)
+  | Sbuiltin(ids, ef, el) ->
+      fprintf p "@[<hv 2>%a =@ builtin %s@,(@[<hov 0>%a@]) : @[<hov 0>%a@];@]" 
+                print_varlist (ids,true)
                 (name_of_external ef)
                 print_expr_list (true, el)
 	        print_sig (ef_sig ef)
@@ -264,24 +279,16 @@ let rec print_stmt p s =
         cases;
       fprintf p "@ default: exit %d;\n" (Nat.to_int dfl);
       fprintf p "@;<0 -2>}@]"
-  | Sreturn None ->
+  | Sreturn [] ->
       fprintf p "return;"
-  | Sreturn (Some e) ->
-      fprintf p "return %a;" print_expr e
+  | Sreturn (el) ->
+      fprintf p "return %a;" print_expr_list (true,el)
   | Slabel(lbl, s1) ->
       fprintf p "%s:@ %a" (ident_name lbl) print_stmt s1  (* wrong for Cminorgen output *)
   | Sgoto lbl ->
       fprintf p "goto %s;" (ident_name lbl)               (* wrong for Cminorgen output *)
 
 (* Functions *)
-
-let rec print_varlist p (vars, first) =
-  match vars with
-  | [] -> ()
-  | v1 :: vl ->
-      if not first then fprintf p ",@ ";
-      fprintf p "%s" (ident_name v1);
-      print_varlist p (vl, false)
 
 let print_function p id f =
   fprintf p "@[<hov 4>\"%s\"(@[<hov 0>%a@])@ : @[<hov 0>%a@]@]@ "

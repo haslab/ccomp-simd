@@ -45,7 +45,8 @@ type t = {
   alignof_fun: int option;
   bigendian: bool;
   bitfields_msb_first: bool;
-  struct_return_as_int: int
+  struct_return_as_int: int;
+  homfstruct_size: int
 }
 
 let ilp32ll64 = {
@@ -65,7 +66,7 @@ let ilp32ll64 = {
   sizeof_wchar = 4;
   sizeof_size_t = 4;
   sizeof_ptrdiff_t = 4;
-  alignof_vecdata = 16;
+  alignof_vecdata = 8;
   alignof_ptr = 4;
   alignof_short = 2;
   alignof_int = 4;
@@ -78,7 +79,8 @@ let ilp32ll64 = {
   alignof_fun = None;
   bigendian = false;
   bitfields_msb_first = false;
-  struct_return_as_int = 0
+  struct_return_as_int = 0;
+  homfstruct_size = 0
 }
 
 let i32lpll64 = {
@@ -98,7 +100,7 @@ let i32lpll64 = {
   sizeof_wchar = 4;
   sizeof_size_t = 8;
   sizeof_ptrdiff_t = 8;
-  alignof_vecdata = 16;
+  alignof_vecdata = 8;
   alignof_ptr = 8;
   alignof_short = 2;
   alignof_int = 4;
@@ -111,7 +113,8 @@ let i32lpll64 = {
   alignof_fun = None;
   bigendian = false;
   bitfields_msb_first = false;
-  struct_return_as_int = 0
+  struct_return_as_int = 0;
+  homfstruct_size = 0
 }
 
 let il32pll64 = {
@@ -131,7 +134,7 @@ let il32pll64 = {
   sizeof_wchar = 4;
   sizeof_size_t = 8;
   sizeof_ptrdiff_t = 8;
-  alignof_vecdata = 16;
+  alignof_vecdata = 8;
   alignof_ptr = 8;
   alignof_short = 2;
   alignof_int = 4;
@@ -144,7 +147,8 @@ let il32pll64 = {
   alignof_fun = None;
   bigendian = false;
   bitfields_msb_first = false;
-  struct_return_as_int = 0
+  struct_return_as_int = 0;
+  homfstruct_size = 0
 }
 
 (* Canned configurations for some ABIs *)
@@ -165,7 +169,8 @@ let ppc_32_bigendian =
                    struct_return_as_int = 8 }
 let arm_littleendian =
   { ilp32ll64 with name = "arm";
-                   struct_return_as_int = 4 }
+                   struct_return_as_int = 4;
+                   homfstruct_size = 4 }
 
 (* Add GCC extensions re: sizeof and alignof *)
 

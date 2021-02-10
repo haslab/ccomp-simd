@@ -136,48 +136,6 @@ let dump_asm asm destfile =
   output_value oc C2C.decl_atom;
   close_out oc
 
-(* Analysis at MachIR level *)
-let process_mir mirname mir : unit =
-  if !option_dmir then MIRcfg.dot_program mirname mir;
-  if !option_fva || !option_fta then begin
-  let open InterProcIterator in
-  let open MemDom in
-  let open LoopUnrolling in
-  let dom = AbstractMemory.partitioned_abstract_mem in
-  match analyze_program mir dom with
-  | Error e -> eprintf "Mir analysis failed: %s" e
-  | OK (r, _) ->
-    if !option_fva then begin
-    Printf.printf "Value analysis result:\n";
-    M.iter (fun (cc, n) fsr ->
-        Printf.printf "In context %s, function %s: " (string_of_context cc) (extern_atom (P.of_int n));
-        Array.iteri (fun i v ->
-            Printf.printf "%d: %s; " i (BourdoncleIterator.string_of_botlift dom.tp_md.wl.AdomLib.wl_to_string v)
-          ) fsr;
-        Printf.printf "\n"
-      ) r
-    end;
-    (* Taint analysis *)
-    if !option_fta then begin
-    let stealth = Registers.Regset.empty in
-    let secrets = [ intern_string "secret" ] in
-    let c2c = List.map (fun (x, y) -> (P.to_int x, MIRcfg.int_of_point y)) in
-    let points_to ctxt f pc =
-      try
-        let m = M.find (c2c ctxt, P.to_int f) r in
-        let v = m.(P.to_int pc - 2) in
-        dom.tp_md.aderef v
-      with Not_found -> (fun _ _ -> Some []) (* Unknown contexts are bottom *)
-    in
-    let rec omega = Datatypes.S omega in
-    match MachIRTaintAnalysis.Inference.run mir (fun _ -> true) stealth secrets points_to omega with
-    | None -> Printf.printf "Constant-time analysis failed\n"
-    | Some ta ->
-      match ta.MachIRTaintAnalysis.Inference.alarms with
-      | [] -> Printf.printf "Constant time !\n"
-      | al -> List.iter (print_error stdout) al
-  end end
-
 (* From CompCert C AST to asm *)
 
 let compile_c_ast sourcename csyntax ofile =
@@ -192,14 +150,13 @@ let compile_c_ast sourcename csyntax ofile =
   set_dest PrintLTL.destination option_dltl ".ltl";
   set_dest PrintMach.destination option_dmach ".mach";
   (* Convert to Asm *)
-  let (asm,machIR) =
+  let asm =
     match Compiler.transf_c_program csyntax with
     | Errors.OK x -> x
     | Errors.Error msg ->
         print_error stderr msg;
         exit 2 in
-  process_mir (output_filename sourcename ".c" ".mir") machIR;
-  (* Dump Asm in binary format *)
+  (* Dump Asm in binary format *)  
   if !option_sdump then
     dump_asm asm (output_filename sourcename ".c" ".sdump");
   (* Print Asm in text form *)
@@ -215,25 +172,26 @@ let compile_c_file sourcename ifile ofile =
 (* From Cminor to asm *)
 
 let compile_cminor_file ifile ofile =
-  let set_dest dst opt ext =
-    dst := if !opt then Some (output_filename ifile ".cm" ext)
-                   else None in
-  set_dest PrintRTL.destination option_drtl ".rtl";
-  set_dest Regalloc.destination_alloctrace option_dalloctrace ".alloctrace";
-  set_dest PrintLTL.destination option_dltl ".ltl";
-  set_dest PrintMach.destination option_dmach ".mach";
   Sections.initialize();
   let ic = open_in ifile in
   let lb = Lexing.from_channel ic in
   try
+    let set_dest dst opt ext =
+      dst := if !opt then Some (output_filename ifile ".cm" ext)
+                     else None in
+    set_dest PrintCminor.destination option_dcminor ".cm.parsed";
+    set_dest PrintRTL.destination option_drtl ".cm.rtl";
+    set_dest Regalloc.destination_alloctrace option_dalloctrace ".cm.alloctrace";
+    set_dest PrintLTL.destination option_dltl ".cm.ltl";
+    set_dest PrintMach.destination option_dmach ".cm.mach";
+    CXBuiltins.simd_builtins_set 255(*!Clflags.mach_options*) (CXBuiltins.simd_builtins ());
     match Compiler.transf_cminor_program
             (CMtypecheck.type_program
               (CMparser.prog CMlexer.token lb)) with
     | Errors.Error msg ->
         print_error stderr msg;
         exit 2
-    | Errors.OK (p,machIR) ->
-      process_mir (output_filename ifile ".cm" ".mir") machIR;
+    | Errors.OK p ->
         let oc = open_out ofile in
         PrintAsm.print_program oc p;
         close_out oc
@@ -445,15 +403,7 @@ let parse_cmdline spec usage =
     end
   in parse 1
 
-let usage_moptions_string =
-  begin match Configuration.arch with
-  | "powerpc" -> ""
-  | "arm"     -> ""
-  | "ia32"    -> usage_ia32_string
-  | _         -> assert false
-  end
-
-let usage_string = 
+let usage_string =
 "The CompCert C verified compiler, version " ^ Configuration.version ^ "
 Usage: ccomp [options] <source files>
 Recognized source files:
@@ -497,8 +447,7 @@ Code generation options: (use -fno-<opt> to turn off -f<opt>) :
   -falign-branch-targets <n>  Set alignment (in bytes) of branch targets
   -falign-cond-branches <n>  Set alignment (in bytes) of conditional branches
   -Wa,<opt>      Pass option <opt> to the assembler
-" ^ usage_moptions_string ^ 
-"Debugging options:
+Debugging options:
   -g             Generate debugging information
 Linking options:
   -l<lib>        Link library <lib>
@@ -512,21 +461,18 @@ Tracing options:
   -drtl          Save RTL at various optimization points in <file>.rtl.<n>
   -dltl          Save LTL after register allocation in <file>.ltl
   -dmach         Save generated Mach code in <file>.mach
-  -dmir	Save generated Mach code in <file>.mir
   -dasm          Save generated assembly in <file>.s
   -sdump         Save info for post-linking validation in <file>.sdump
 General options:
   -stdlib <dir>  Set the path of the Compcert run-time library
   -v             Print external commands before invoking them
+  -timings       Show the time spent in various compiler passes
 Interpreter mode:
   -interp        Execute given .c files using the reference interpreter
   -quiet         Suppress diagnostic messages for the interpreter
   -trace         Have the interpreter produce a detailed trace of reductions
   -random        Randomize execution order
   -all           Simulate all possible execution orders
-Analysis mode:
-  -fva	Enable the value analysis [off]
-  -fta	Enable the taint analysis [off]
 "
 
 let language_support_options = [
@@ -561,7 +507,6 @@ let cmdline_actions =
   "-dltl$", Set option_dltl;
   "-dalloctrace$", Set option_dalloctrace;
   "-dmach$", Set option_dmach;
-  "-dmir$", Set option_dmir;
   "-dasm$", Set option_dasm;
   "-sdump$", Set option_sdump;
   "-interp$", Set option_interp;
@@ -594,6 +539,7 @@ let cmdline_actions =
       push_linker_arg s);
   "-Os$", Set option_Osize;
   "-O$", Unset option_Osize;
+  "-timings$", Set option_timings;
   "-fsmall-data$", Integer(fun n -> option_small_data := n);
   "-fsmall-const$", Integer(fun n -> option_small_const := n);
   "-ffloat-const-prop$", Integer(fun n -> option_ffloatconstprop := n);
@@ -603,9 +549,8 @@ let cmdline_actions =
   "-fall$", Self (fun _ ->
               List.iter (fun r -> r := true) language_support_options);
   "-fnone$", Self (fun _ ->
-              List.iter (fun r -> r := false) language_support_options)
+              List.iter (fun r -> r := false) language_support_options);
   ]
-  @ List.map (fun o-> o, Self process_mach_option) mach_options_list
   @ f_opt "tailcalls" option_ftailcalls
   @ f_opt "longdouble" option_flongdouble
   @ f_opt "struct-return" option_fstruct_return
@@ -616,8 +561,6 @@ let cmdline_actions =
   @ f_opt "inline-asm" option_finline_asm
   @ f_opt "fpu" option_ffpu
   @ f_opt "sse" option_ffpu (* backward compatibility *)
-  @ f_opt "va" option_fva
-  @ f_opt "ta" option_fta
 
 let _ =
   Gc.set { (Gc.get()) with
@@ -640,7 +583,7 @@ let _ =
     eprintf "Ambiguous '-o' option (multiple source files)\n";
     exit 2
   end;
-  let linker_args = perform_actions () in
+  let linker_args = time "Total compilation time" perform_actions () in
   if (not nolink) && linker_args <> [] then begin
     linker (output_filename_default "a.out") linker_args
   end

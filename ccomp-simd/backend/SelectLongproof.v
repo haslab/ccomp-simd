@@ -41,10 +41,10 @@ Definition helper_implements (id: ident) (sg: signature) (vargs: list val) (vres
      Genv.find_symbol ge id = Some b
   /\ Genv.find_funct_ptr ge b = Some (External ef)
   /\ ef_sig ef = sg
-  /\ forall m, external_call ef ge vargs m E0 vres m.
+  /\ forall m, external_call ef ge vargs m E0 (vres::nil) m.
 
 Definition builtin_implements (id: ident) (sg: signature) (vargs: list val) (vres: val) : Prop :=
-  forall m, external_call (EF_builtin id nil sg) ge vargs m E0 vres m.
+  forall m, external_call (EF_builtin id None sg) ge vargs m E0 (vres::nil) m.
 
 Definition i64_helpers_correct (hf: helper_functions) : Prop :=
     (forall x z, Val.longoffloat x = Some z -> helper_implements hf.(i64_dtos) sig_f_l (x::nil) z)
@@ -114,7 +114,7 @@ Remark eval_builtin_1:
   forall le id sg arg1 varg1 vres,
   eval_expr ge sp e m le arg1 varg1 ->
   builtin_implements ge id sg (varg1::nil) vres ->
-  eval_expr ge sp e m le (Ebuiltin (EF_builtin id nil sg) (arg1 ::: Enil)) vres.
+  eval_expr ge sp e m le (Ebuiltin (EF_builtin id None sg) (arg1 ::: Enil)) vres.
 Proof.
   intros. econstructor. econstructor. eauto. constructor. apply H0. 
 Qed.
@@ -124,7 +124,7 @@ Remark eval_builtin_2:
   eval_expr ge sp e m le arg1 varg1 ->
   eval_expr ge sp e m le arg2 varg2 ->
   builtin_implements ge id sg (varg1::varg2::nil) vres ->
-  eval_expr ge sp e m le (Ebuiltin (EF_builtin id nil sg) (arg1 ::: arg2 ::: Enil)) vres.
+  eval_expr ge sp e m le (Ebuiltin (EF_builtin id None sg) (arg1 ::: arg2 ::: Enil)) vres.
 Proof.
   intros. econstructor. constructor; eauto. constructor; eauto. constructor. apply H1.
 Qed.
@@ -692,7 +692,7 @@ Qed.
 Theorem eval_addl: binary_constructor_sound (addl hf) Val.addl.
 Proof.
   unfold addl; red; intros.
-  set (default := Ebuiltin (EF_builtin (i64_add hf) nil sig_ll_l) (a ::: b ::: Enil)).
+  set (default := Ebuiltin (EF_builtin (i64_add hf) None sig_ll_l) (a ::: b ::: Enil)).
   assert (DEFAULT:
     exists v, eval_expr ge sp e m le default v /\ Val.lessdef (Val.addl x y) v).
   {
@@ -715,7 +715,7 @@ Qed.
 Theorem eval_subl: binary_constructor_sound (subl hf) Val.subl.
 Proof.
   unfold subl; red; intros.
-  set (default := Ebuiltin (EF_builtin (i64_sub hf) nil sig_ll_l) (a ::: b ::: Enil)).
+  set (default := Ebuiltin (EF_builtin (i64_sub hf) None sig_ll_l) (a ::: b ::: Enil)).
   assert (DEFAULT:
     exists v, eval_expr ge sp e m le default v /\ Val.lessdef (Val.subl x y) v).
   {
@@ -1024,16 +1024,10 @@ Proof.
   rename i into x. rename i0 into y.
   destruct c; simpl.
 - (* Ceq *)
-  destruct (is_longconst_zero b) eqn:LC.
-+ exploit is_longconst_zero_sound; eauto. intros EQ; inv EQ; clear H0.
-  apply eval_cmpl_eq_zero; auto.
-+ exploit eval_xorl. eexact H. eexact H0. intros [v1 [A B]]. simpl in B. inv B.
+  exploit eval_xorl. eexact H. eexact H0. intros [v1 [A B]]. simpl in B. inv B.
   rewrite int64_eq_xor. apply eval_cmpl_eq_zero; auto.  
 - (* Cne *)
-  destruct (is_longconst_zero b) eqn:LC.
-+ exploit is_longconst_zero_sound; eauto. intros EQ; inv EQ; clear H0.
-  apply eval_cmpl_ne_zero; auto.
-+ exploit eval_xorl. eexact H. eexact H0. intros [v1 [A B]]. simpl in B. inv B.
+  exploit eval_xorl. eexact H. eexact H0. intros [v1 [A B]]. simpl in B. inv B.
   rewrite int64_eq_xor. apply eval_cmpl_ne_zero; auto.  
 - (* Clt *)
   exploit (eval_cmplu_gen Clt Clt). eexact H. eexact H0. simpl.
@@ -1095,16 +1089,10 @@ Proof.
   rename i into x. rename i0 into y.
   destruct c; simpl.
 - (* Ceq *)
-  destruct (is_longconst_zero b) eqn:LC.
-+ exploit is_longconst_zero_sound; eauto. intros EQ; inv EQ; clear H0.
-  apply eval_cmpl_eq_zero; auto.
-+ exploit eval_xorl. eexact H. eexact H0. intros [v1 [A B]]. simpl in B; inv B.
+  exploit eval_xorl. eexact H. eexact H0. intros [v1 [A B]]. simpl in B; inv B.
   rewrite int64_eq_xor. apply eval_cmpl_eq_zero; auto.
 - (* Cne *)
-  destruct (is_longconst_zero b) eqn:LC.
-+ exploit is_longconst_zero_sound; eauto. intros EQ; inv EQ; clear H0.
-  apply eval_cmpl_ne_zero; auto.
-+ exploit eval_xorl. eexact H. eexact H0. intros [v1 [A B]]. simpl in B; inv B.
+  exploit eval_xorl. eexact H. eexact H0. intros [v1 [A B]]. simpl in B; inv B.
   rewrite int64_eq_xor. apply eval_cmpl_ne_zero; auto.
 - (* Clt *)
   destruct (is_longconst_zero b) eqn:LC.

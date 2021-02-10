@@ -216,30 +216,32 @@ Fixpoint sel_stmt (ge: Cminor.genv) (s: Cminor.stmt) : stmt :=
   | Cminor.Sblock body => Sblock (sel_stmt ge body)
   | Cminor.Sexit n => Sexit n
   | Cminor.Sswitch e cases dfl => Sswitch (sel_expr e) cases dfl
-  | Cminor.Sreturn None => Sreturn None
-  | Cminor.Sreturn (Some e) => Sreturn (Some (sel_expr e))
+(*  | Cminor.Sreturn None => Sreturn None*)
+  | Cminor.Sreturn (el) => Sreturn (sel_exprlist el)
   | Cminor.Slabel lbl body => Slabel lbl (sel_stmt ge body)
   | Cminor.Sgoto lbl => Sgoto lbl
   end.
 
+End SELECTION.
+
 (** Conversion of functions. *)
 
-Definition sel_function (ge: Cminor.genv) (f: Cminor.function) : function :=
+Definition sel_function (hf: helper_functions) (ge: Cminor.genv) (f: Cminor.function) : function :=
   mkfunction
     f.(Cminor.fn_sig)
     f.(Cminor.fn_params)
     f.(Cminor.fn_vars)
     f.(Cminor.fn_stackspace)
-    (sel_stmt ge f.(Cminor.fn_body)).
+    (sel_stmt hf ge f.(Cminor.fn_body)).
 
-Definition sel_fundef (ge: Cminor.genv) (f: Cminor.fundef) : fundef :=
-  transf_fundef (sel_function ge) f.
+Definition sel_fundef (hf: helper_functions) (ge: Cminor.genv) (f: Cminor.fundef) : fundef :=
+  transf_fundef (sel_function hf ge) f.
 
-End SELECTION.
+(** Conversion of programs. *)
 
 Local Open Scope error_monad_scope.
 
 Definition sel_program (p: Cminor.program) : res program :=
   let ge := Genv.globalenv p in
-  do hf <- get_helpers p; OK (transform_program (sel_fundef hf ge) p).
+  do hf <- get_helpers ge; OK (transform_program (sel_fundef hf ge) p).
 

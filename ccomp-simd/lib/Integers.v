@@ -1202,6 +1202,11 @@ Qed.
 Remark Ztestbit_0: forall n, Z.testbit 0 n = false.
 Proof Z.testbit_0_l.
 
+Remark Ztestbit_1: forall n, Z.testbit 1 n = zeq n 0.
+Proof.
+  intros. destruct n; simpl; auto.
+Qed.
+
 Remark Ztestbit_m1: forall n, 0 <= n -> Z.testbit (-1) n = true.
 Proof.
   intros. destruct n; simpl; auto. 
@@ -1513,6 +1518,11 @@ Lemma bits_zero:
   forall i, testbit zero i = false.
 Proof.
   intros. unfold testbit. rewrite unsigned_zero. apply Ztestbit_0. 
+Qed.
+
+Remark bits_one: forall n, testbit one n = zeq n 0.
+Proof.
+  unfold testbit; intros. rewrite unsigned_one. apply Ztestbit_1. 
 Qed.
 
 Lemma bits_mone:
@@ -3844,6 +3854,12 @@ Module Wordsize_64.
   Proof. unfold wordsize; congruence. Qed.
 End Wordsize_64.
 
+Module Wordsize_128.
+  Definition wordsize := 128%nat.
+  Remark wordsize_not_zero: wordsize <> 0%nat.
+  Proof. unfold wordsize; congruence. Qed.
+End Wordsize_128.
+
 Module Int64.
 
 Include Make(Wordsize_64).
@@ -4415,13 +4431,20 @@ End Int64.
 
 Notation int64 := Int64.int.
 
-Module Wordsize_128.
-  Definition wordsize := 128%nat.
-  Remark wordsize_not_zero: wordsize <> 0%nat.
-  Proof. unfold wordsize; congruence. Qed.
-End Wordsize_128.
+Module Int128.
 
-Module Int128 := Make(Wordsize_128).
+Include Make(Wordsize_128).
+
+(** Decomposing 128-bit ints as pairs of 64-bit ints *)
+
+Definition loword (n: int) : Int64.int := Int64.repr (unsigned n).
+
+Definition hiword (n: int) : Int64.int := Int64.repr (unsigned (shru n (repr Int64.zwordsize))).
+
+Definition ofwords (hi lo: Int64.int) : int :=
+  or (shl (repr (Int64.unsigned hi)) (repr Int64.zwordsize)) (repr (Int64.unsigned lo)).
+
+End Int128.
 
 Notation int128 := Int128.int.
 

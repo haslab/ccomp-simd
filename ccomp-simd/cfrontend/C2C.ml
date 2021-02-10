@@ -73,7 +73,7 @@ let warning msg =
 
 let builtins_generic = {
   typedefs = [];
-  functions = [
+  functions = fun () -> [ 
     (* Floating-point absolute value *)
     "__builtin_fabs",
       (TFloat(FDouble, []), [TFloat(FDouble, [])], false);
@@ -125,7 +125,7 @@ let builtins_generic = {
         (TInt(IULongLong, []),
           [TPtr(TVoid [], [])],
           false);
-    "__compcert_va_int64",
+    "__compcert_va_float64",
         (TFloat(FDouble, []),
           [TPtr(TVoid [], [])],
           false)
@@ -135,9 +135,9 @@ let builtins_generic = {
 (* Add processor-dependent builtins *)
 
 let builtins =
-  { typedefs = builtins_generic.typedefs @ (CBuiltins.builtins).typedefs
-  ; functions = builtins_generic.functions @ (CBuiltins.builtins).functions
-  }
+  { typedefs = builtins_generic.typedefs @ CBuiltins.builtins.typedefs;
+    functions = fun () -> builtins_generic.functions ()
+			  @ CBuiltins.builtins.functions () }
 
 (** ** Functions used to handle string literals *)
 
@@ -203,9 +203,10 @@ a constant)"; Integers.Int.one in
 (** ** Translation of [va_arg] for variadic functions. *)
 
 let va_list_ptr e =
-  if CBuiltins.va_list_scalar
-  then Eaddrof(e, Tpointer(typeof e, noattr))
-  else e
+  if not CBuiltins.va_list_scalar then e else
+    match e with
+    | Evalof(e', _) -> Eaddrof(e', Tpointer(typeof e, noattr))
+    | _             -> error "bad use of a va_list object"; e
 
 let make_builtin_va_arg env ty e =
   let (helper, ty_ret) =
@@ -218,15 +219,14 @@ let make_builtin_va_arg env ty e =
         ("__compcert_va_float64", Tfloat(F64, noattr))
     | _ ->
         unsupported "va_arg at this type";
-        ("", Tvoid)
-  in
-    Ecast 
-      (Ecall(Evar (intern_string helper, 
-                   Tfunction(Tcons(Tpointer(Tvoid, noattr), Tnil), ty_ret, 
-                             cc_default)),
-             Econs(va_list_ptr e, Enil),
-             ty_ret),
-       ty)
+        ("", Tvoid) in
+  let ty_fun =
+    Tfunction(Tcons(Tpointer(Tvoid, noattr), Tnil), ty_ret, cc_default) in
+  Ecast 
+    (Ecall(Evalof(Evar(intern_string helper, ty_fun), ty_fun),
+           Econs(va_list_ptr e, Enil),
+           ty_ret),
+     ty)
 
 (** ** Translation functions *)
 
@@ -305,16 +305,6 @@ let convertTyp env t =
     match Cutil.unroll env t with
     | C.TVoid a -> Tvoid
     | C.TVecdata a -> Tvecdata
-    | C.TInt(ik,a) as t when Cutil.vector_size t > 0 ->
-       if Cutil.vector_size t = (!Machine.config).Machine.sizeof_vecdata
-       then Tvecdata
-       else (unsupported (sprintf "vector_size attribute of %d"
-				  (Cutil.vector_size t)); Tvecdata)
-    | C.TFloat(fk,a) as t when Cutil.vector_size t > 0 ->
-       if Cutil.vector_size t = (!Machine.config).Machine.sizeof_vecdata
-       then Tvecdata 
-       else (unsupported (sprintf "vector_size attribute of %d"
-				  (Cutil.vector_size t)); Tvecdata)
     | C.TInt(C.ILongLong, a) ->
         Tlong(Signed, convertAttr a)
     | C.TInt(C.IULongLong, a) ->
@@ -341,8 +331,17 @@ let convertTyp env t =
         Tarray(convertTyp seen ty, convertInt sz, convertAttr a)
     | C.TFun(tres, targs, va, a) ->
         if Cutil.is_composite_type env tres then
-          unsupported "return type is a struct or union (consider adding option -fstruct-return)";
-        Tfunction(begin match targs with
+        begin
+          if not (Cutil.is_homfstruct_type env tres) then
+            unsupported "return type is a struct or union (consider adding option -fstruct-return)";
+          Tfunction(begin match targs with
+                  | None -> Tnil
+                  | Some tl -> convertParams seen tl
+                  end,
+                  convertTyp seen tres,
+                  convertCallconv va a)
+        end else
+          Tfunction(begin match targs with
                   | None -> Tnil
                   | Some tl -> convertParams seen tl
                   end,
@@ -350,22 +349,22 @@ let convertTyp env t =
                   convertCallconv va a)
     | C.TNamed _ ->
         assert false
-    | C.TStruct(id, a) ->
+   | C.TStruct(id, a) ->
         let a' = convertAttr a in
         begin try
-          mergeTypAttr (Hashtbl.find compositeCache id) a'
+          merge_attributes (Hashtbl.find compositeCache id) a'
         with Not_found ->
           let flds =
             try
               convertFields (id :: seen) (Env.find_struct env id)
             with Env.Error e ->
               error (Env.error_message e); Fnil in
-          Tstruct(intern_string("struct " ^ id.name), flds, a')
+          Tstruct(intern_string(id.name), flds, a')
         end
     | C.TUnion(id, a) ->
         let a' = convertAttr a in
         begin try
-          mergeTypAttr (Hashtbl.find compositeCache id) a'
+          merge_attributes (Hashtbl.find compositeCache id) a'
         with Not_found ->
           let flds =
             try
@@ -429,7 +428,7 @@ let string_of_type ty =
 
 let supported_return_type env ty =
   match Cutil.unroll env ty with
-  | C.TStruct _  | C.TUnion _ -> false
+  | C.TStruct _  | C.TUnion _ -> Cutil.is_homfstruct_type env ty
   | _ -> true
 
 let is_longlong env ty =
@@ -484,42 +483,30 @@ let convertFloat f kind =
 
 (** ** Handling of inlined simd builtins *)
 
-(* removes immediate arguments from the simd-builtin signature *)
-let rec mach_builtin_targs imms targs =
- match imms with
- | [] -> targs
- | 0::xs -> begin match targs with
-		  | TInt _::ys -> mach_builtin_targs xs ys
-		  | _::ys -> error "immediate argument in simd-builtin must be an integer!"; mach_builtin_targs xs ys
-		  | _ -> error "not enough arguments in builtin"; targs
-	    end
- | x::xs ->  begin match targs with
-		  | y::ys -> y::mach_builtin_targs ((x-1)::xs) ys
-		  | _ -> error "not enough arguments in builtin"; targs
-	     end
+let list_take_drop n l =
+  let rec loop n = function
+    | h :: t when n > 0 -> let (a,b) = loop (n - 1) t in (h::a,b)
+    | _ -> ([],l)
+  in loop n l
 
-(* splits the argument list in the lists of immediate and remainder
-  arguments*)
-let rec splitimms pos ipos args =
-  match ipos with
-  | [] -> ([],args)
-  | x::xs -> 
-     match args with
-     | Econs(y,ys) ->
-	if x==pos
-	then let ival = 
-	       match Initializers.constval y with
-               | Errors.OK(Vint n) -> n
-	       | _ -> error ("ill-formed simd-builtin (argument #"
-			     ^ string_of_int pos ^ " must be a constant)");
-	       Integers.Int.zero
-	     in let (imms,vargs) = splitimms (pos+1) xs ys
-	     in (ival::imms, vargs)
-        else let (imms,vargs) = splitimms (pos+1) (x::xs) ys
-	     in (imms, Econs(y,vargs))
-     | _ -> error "not enough arguments in simd-builtin"; [], args
+(* splits the argument list in the lists of "real" arguments and immediates *)
+let rec splitimms nargs args =
+  match args with
+  | Econs(y,ys) when nargs>0 ->
+      let (rest,immargs) = splitimms (nargs-1) ys
+      in (Econs(y,rest), immargs)
+  | Econs(y,ys) -> 
+      let ival = match Initializers.constval y with
+                 | Errors.OK(Vint n) -> n
+	         | _ -> error ("ill-formed simd-builtin (immediate argument must be a constant)");
+			Integers.Int.zero
+      in let (_,imms) = splitimms 0 ys
+	 in (Enil, camlint64_of_coqint ival::imms)
+  | Enil -> (Enil, [])
 
 (** Expressions *)
+
+let re_builtin = Str.regexp "__builtin_"
 
 let ezero = Eval(Vint(coqint_of_camlint 0l), type_int32s)
 
@@ -700,32 +687,42 @@ let rec convertExpr env e =
      try
        match fn.edesc with
        | C.EVar v ->
-	  let id = intern_string v.name in
-	  let blt = Hashtbl.find simd_builtin_functions id in
-	  let tres, targs, _ = blt.bsig in
-	  let targs_rest = mach_builtin_targs blt.bimmargs targs in
-	  let targs' = convertTypList env targs_rest in
-	  let tres' = convertTyp env tres in
-	  let sg = signature_of_type targs' tres' cc_default in
-	  let args' = convertExprList env args in
-	  let vimms, vargs = splitimms 0 blt.bimmargs args' in 
-	  (*printf "FOUND BUILTIN %s\n" v.name;*)
-	  Ebuiltin (EF_builtin (id, vimms, sg), targs' , vargs, tres')
+	  if Str.string_match re_builtin v.name 0
+	  then begin
+	      let id = intern_string v.name in
+	      try let blt = Hashtbl.find simd_builtin_functions id in
+		  let tres, targs, _ = blt.bsig in
+		  let (targs_real,targs_imm) = list_take_drop (List.length targs - blt.bimmargs) targs in
+		  let targs' = convertTypList env targs_real in
+		  let tres' = convertTyp env tres in
+		  let sg = signature_of_type targs' tres' cc_default in
+		  let args' = convertExprList env args in
+		  let vargs,vimms = splitimms (List.length targs - blt.bimmargs) args' in 
+		  (*Clflags.dbg_v (printf "PROCESSED SIMD BUILTIN %s\n" v.name);*)
+		  Ebuiltin (EF_builtin (id, Some (mkBlt_data blt vimms), sg), targs' , vargs, tres')
+	      with Not_found ->
+		begin
+		  Clflags.dbg_v (printf "Warning: unrecognized builtin %s\n" v.name); raise Not_found
+		end
+	    end
+	  else begin 
+	      raise Not_found
+	    end
        | _ -> raise Not_found
      with Not_found ->
-     (* finished compcert-simd *)
-      if not (supported_return_type env e.etyp) then
-        unsupported ("function returning a result of type " ^ string_of_type e.etyp ^ " (consider adding option -fstruct-return)");
-      begin match projFunType env fn.etyp with
-      | None ->
-          error "wrong type for function part of a call"
-      | Some(tres, targs, va) ->
-          if targs = None && not !Clflags.option_funprototyped then
-            unsupported "call to unprototyped function (consider adding option -funprototyped)";
-          if va && not !Clflags.option_fvararg_calls then
-            unsupported "call to variable-argument function (consider adding option -fvararg-calls)"
-      end;
-      Ecall(convertExpr env fn, convertExprList env args, ty)
+	  (* finished compcert-simd *)
+	  if not (supported_return_type env e.etyp) then
+          unsupported ("function returning a result of type " ^ string_of_type e.etyp ^ " (consider adding option -fstruct-return)");
+ 	  begin match projFunType env fn.etyp with
+	   	| None ->
+	   	   error "wrong type for function part of a call"
+	   	| Some(tres, targs, va) ->
+		    if targs = None && not !Clflags.option_funprototyped then
+		       unsupported "call to unprototyped function (consider adding option -funprototyped)";
+		     if va && not !Clflags.option_fvararg_calls then
+		       unsupported "call to variable-argument function (consider adding option -fvararg-calls)"
+	     end;
+	  Ecall(convertExpr env fn, convertExprList env args, ty)
 
 and convertLvalue env e =
   let ty = convertTyp env e.etyp in
@@ -881,7 +878,9 @@ and convertSwitch ploc env = function
 (** Function definitions *)
 
 let convertFundef loc env fd =
-  if Cutil.is_composite_type env fd.fd_ret then
+  if Cutil.is_composite_type env fd.fd_ret
+     && not (Cutil.is_homfstruct_type env fd.fd_ret)
+  then
     unsupported "function returning a struct or union (consider adding option -fstruct-return)";
   if fd.fd_vararg && not !Clflags.option_fvararg_calls then
     unsupported "variable-argument function (consider adding option -fvararg-calls)";
@@ -918,20 +917,28 @@ let convertFundef loc env fd =
 
 (** External function declaration *)
 
-let re_builtin = Str.regexp "__builtin_"
-
 let convertFundecl env (sto, id, ty, optinit) =
   let (args, res, cconv) =
     match convertTyp env ty with
     | Tfunction(args, res, cconv) -> (args, res, cconv)
     | _ -> assert false in
   let id' = intern_string id.name in
+  (* for simd-builtins, we drop immediate arguments from args *)
+  let args =
+    let rec take_args n = function
+      | Tcons(t,ts) when n>0 -> Tcons(t,take_args (n-1) ts)
+      | ts -> Tnil
+    in begin try let blt = Hashtbl.find simd_builtin_functions id' in
+		 let _, targs, _ = blt.bsig in
+		 take_args (List.length targs - blt.bimmargs) args
+	     with Not_found -> args
+       end in
   let sg = signature_of_type args res cconv in
   let ef =
     if id.name = "malloc" then EF_malloc else
     if id.name = "free" then EF_free else
     if Str.string_match re_builtin id.name 0
-    then EF_builtin(id', [], sg)
+    then EF_builtin(id', None, sg)
     else EF_external(id', sg) in
   (id', Gfun(External(ef, args, res, cconv)))
 
@@ -949,11 +956,11 @@ let rec convertInit env init =
   | C.Init_single e ->
       Init_single (convertExpr env e)
   | C.Init_array il ->
-      Init_compound (convertInitList env il)
+      Init_array (convertInitList env il)
   | C.Init_struct(_, flds) ->
-      Init_compound (convertInitList env (List.map snd flds))
+      Init_struct (convertInitList env (List.map snd flds))
   | C.Init_union(_, fld, i) ->
-      Init_compound (Init_cons(convertInit env i, Init_nil))
+      Init_union (intern_string fld.fld_name, convertInit env i)
 
 and convertInitList env il =
   match il with
@@ -1050,7 +1057,6 @@ let rec convertGlobdecls env res gl =
           convertGlobdecls env res gl'
 
 (** Build environment of typedefs, structs, unions and enums *)
-
 let rec translEnv env = function
   | [] -> env
   | g :: gl ->
@@ -1128,15 +1134,18 @@ let convertProgram p =
   Hashtbl.clear stringTable;
   Hashtbl.clear compositeCache;
   Hashtbl.clear simd_builtin_functions;
-  CXBuiltins.simd_builtins_set !Clflags.mach_options CXBuiltins.simd_builtins;
+  CXBuiltins.simd_builtins_set 255(*!Clflags.mach_options*) (CXBuiltins.simd_builtins ());
+  (*CXBuiltins.simd_builtins_printall ();*)
   let p = Builtins.declarations() @ p in
   try
-    let gl1 = convertGlobdecls (translEnv Env.empty p) [] (cleanupGlobals p) in
+    let env = translEnv Env.empty p in
+    let gl1 = convertGlobdecls env [] (cleanupGlobals p) in
     let gl2 = globals_for_strings gl1 in
+    let p' = { AST.prog_defs = gl2;
+                AST.prog_main = intern_string "main" } in
     if !numErrors > 0
     then None
-    else Some { AST.prog_defs = gl2;
-                AST.prog_main = intern_string "main" }
+    else Some p'
   with Env.Error msg ->
     error (Env.error_message msg); None
 
@@ -1145,9 +1154,13 @@ let convertProgram p =
 let atom_is_static a =
   try
     let i = Hashtbl.find decl_atom a in
-    i.a_storage = C.Storage_static || i.a_inline
-    (* inline functions can remain in generated code, but at least
-       let's not make them global *)
+    (* inline functions can remain in generated code, but should not
+       be global, unless explicitly marked "extern" *)
+    match i.a_storage with
+    | C.Storage_default -> i.a_inline
+    | C.Storage_extern -> false
+    | C.Storage_static -> true
+    | C.Storage_register -> false (* should not happen *)
   with Not_found ->
     false
 

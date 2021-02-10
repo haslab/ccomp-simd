@@ -48,32 +48,6 @@ Definition add_globdef (fenv: funenv) (idg: ident * globdef fundef unit) : funen
 Definition funenv_program (p: program) : funenv :=
   List.fold_left add_globdef p.(prog_defs) (PTree.empty function).
 
-(** Resources used by a function. *)
-
-(** Maximum PC (node number) in the CFG of a function.  All nodes of
-  the CFG of [f] are between 1 and [max_pc_function f] (inclusive). *)
-
-Definition max_pc_function (f: function) :=
-  PTree.fold (fun m pc i => Pmax m pc) f.(fn_code) 1%positive.
-
-(** Maximum pseudo-register defined in a function.  All results of
-  an instruction of [f], as well as all parameters of [f], are between
-  1 and [max_def_function] (inclusive). *)
-
-Definition max_def_instr (i: instruction) :=
-  match i with
-  | Iop op args res s => res
-  | Iload chunk addr args dst s => dst
-  | Icall sg ros args res s => res
-  | Ibuiltin ef args res s => res
-  | _ => 1%positive
-  end.
-
-Definition max_def_function (f: function) :=
-  Pmax
-    (PTree.fold (fun m pc i => Pmax m (max_def_instr i)) f.(fn_code) 1%positive)
-    (List.fold_left (fun m r => Pmax m r) f.(fn_params) 1%positive).
-
 (** State monad *)
 
 (** To construct incrementally the CFG of a function after inlining,
@@ -207,7 +181,7 @@ Record context: Type := mkcontext {
   dstk: Z;                              (**r offset for stack references *)
   mreg: positive;                       (**r max pseudo-reg number *)
   mstk: Z;                              (**r original stack block size *)
-  retinfo: option(node * reg)           (**r where to branch on return *)
+  retinfo: option(node * list reg)           (**r where to branch on return *)
                                         (**r and deposit return value *)
 }.
 
@@ -244,19 +218,17 @@ Definition initcontext (dpc dreg nreg: positive) (sz: Z) :=
 Definition min_alignment (sz: Z) :=
   if zle sz 1 then 1
   else if zle sz 2 then 2
-  else if zle sz 4 then 4 
-  else if zle sz 8 then 8
-  else 16.
+  else if zle sz 4 then 4 else 8.
 
 Definition callcontext (ctx: context)
                       (dpc dreg nreg: positive) (sz: Z)
-                      (retpc: node) (retreg: reg) :=
+                      (retpc: node) (retreg: list reg) :=
   {| dpc := dpc;
      dreg := dreg;
      dstk := align (ctx.(dstk) + ctx.(mstk)) (min_alignment sz);
      mreg := nreg;
      mstk := Zmax sz 0;
-     retinfo := Some (spc ctx retpc, sreg ctx retreg) |}.
+     retinfo := Some (spc ctx retpc, sregs ctx retreg) |}.
 
 (** The context used to inline a tail call to another function. *)
 
@@ -319,9 +291,9 @@ Program Definition can_inline (ros: reg + ident): inline_decision ros :=
 Definition inline_function (ctx: context) (id: ident) (f: function)
                            (P: PTree.get id fenv = Some f)
                            (args: list reg)
-                           (retpc: node) (retreg: reg) : mon node :=
+                           (retpc: node) (retreg: list reg) : mon node :=
   let npc := max_pc_function f in
-  let nreg := max_def_function f in
+  let nreg := max_reg_function f in
   do dpc <- reserve_nodes npc;
   do dreg <- reserve_regs nreg;
   let ctx' := callcontext ctx dpc dreg nreg f.(fn_stacksize) retpc retreg in 
@@ -335,7 +307,7 @@ Definition inline_tail_function (ctx: context) (id: ident) (f: function)
                                (P: PTree.get id fenv = Some f)
                                (args: list reg): mon node :=
   let npc := max_pc_function f in
-  let nreg := max_def_function f in
+  let nreg := max_reg_function f in
   do dpc <- reserve_nodes npc;
   do dreg <- reserve_regs nreg;
   let ctx' := tailcontext ctx dpc dreg nreg f.(fn_stacksize) in 
@@ -345,11 +317,18 @@ Definition inline_tail_function (ctx: context) (id: ident) (f: function)
 (** The instruction generated for a [Ireturn] instruction found in an
   inlined function body. *)
 
+(*
 Definition inline_return (ctx: context) (or: option reg) (retinfo: node * reg) :=
   match retinfo, or with
   | (retpc, retreg), Some r => Iop Omove (sreg ctx r :: nil) retreg retpc
   | (retpc, retreg), None   => Inop retpc
   end.
+*)
+Definition inline_return (ctx: context) (or: list reg) (retinfo: node * list reg) :=
+  match retinfo with
+  | (retpc, retreg) => add_moves (sregs ctx or) retreg retpc
+  end.
+
 
 (** Expansion and copying of an instruction.  For most instructions,
   its registers and successor PC are shifted as per the context [ctx],
@@ -387,7 +366,7 @@ Definition expand_instr (ctx: context) (pc: node) (i: instruction): mon unit :=
       match can_inline ros with
       | Cannot_inline =>
           set_instr (spc ctx pc)
-                    (Icall sg (sros ctx ros) (sregs ctx args) (sreg ctx res) (spc ctx s))
+                    (Icall sg (sros ctx ros) (sregs ctx args) (sregs ctx res) (spc ctx s))
       | Can_inline id f P Q =>
           do n <- inline_function ctx id f Q args s res;
           set_instr (spc ctx pc) (Inop n)
@@ -409,19 +388,22 @@ Definition expand_instr (ctx: context) (pc: node) (i: instruction): mon unit :=
       end          
   | Ibuiltin ef args res s =>
       set_instr (spc ctx pc)
-                (Ibuiltin ef (sregs ctx args) (sreg ctx res) (spc ctx s))
+                (Ibuiltin ef (sregs ctx args) (sregs ctx res) (spc ctx s))
   | Icond cond args s1 s2 =>
       set_instr (spc ctx pc)
                 (Icond cond (sregs ctx args) (spc ctx s1) (spc ctx s2))
   | Ijumptable r tbl =>
       set_instr (spc ctx pc)
                 (Ijumptable (sreg ctx r) (List.map (spc ctx) tbl))
-  | Ireturn or =>
+  | Ireturn or => 
       match ctx.(retinfo) with
       | None =>
-          set_instr (spc ctx pc) (Ireturn (option_map (sreg ctx) or))
+          set_instr (spc ctx pc) (Ireturn ((sregs ctx) or))
+(*          set_instr (spc ctx pc) (Ireturn (option_map (sreg ctx) or))*)
       | Some rinfo =>
-          set_instr (spc ctx pc) (inline_return ctx or rinfo)
+          do n <- inline_return ctx or rinfo;
+          set_instr (spc ctx pc) (Inop n)
+(*          set_instr (spc ctx pc) (inline_return ctx or rinfo)*)
       end
   end.
 
@@ -444,7 +426,7 @@ Definition expand_cfg := Fixm size_fenv expand_cfg_rec.
 
 Definition expand_function (fenv: funenv) (f: function): mon context :=
   let npc := max_pc_function f in
-  let nreg := max_def_function f in
+  let nreg := max_reg_function f in
   do dpc <- reserve_nodes npc;
   do dreg <- reserve_regs nreg;
   let ctx := initcontext dpc dreg nreg f.(fn_stacksize) in 

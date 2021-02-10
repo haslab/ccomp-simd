@@ -39,14 +39,17 @@ Local Open Scope error_monad_scope.
   taken in the Csharpminor code can be mapped to Cminor local
   variable, since the latter do not reside in memory.  
 
-  Another task performed during the translation to Cminor is to eliminate
-  redundant casts to small numerical types (8- and 16-bit integers,
-  single-precision floats).  
-
-  Finally, the Clight-like [switch] construct of Csharpminor
-  is transformed into the simpler, lower-level [switch] construct
-  of Cminor.
+  Another task performed during the translation to Cminor is to
+  transform the Clight-like [switch] construct of Csharpminor
+  into the simpler, lower-level [switch] constructs of Cminor.
 *)
+
+
+Definition opt2list {A} (x:option A) : list A :=
+ match x with
+ | None => nil
+ | Some y => y::nil
+ end.
 
 (** * Handling of variables *)
 
@@ -199,11 +202,11 @@ Fixpoint transl_stmt (cenv: compilenv) (xenv: exit_env) (s: Csharpminor.stmt)
       let (tbl, dfl) := switch_table ls O in
       do te <- transl_expr cenv e;
       transl_lblstmt cenv (switch_env ls xenv) ls (Sswitch te tbl dfl)
-  | Csharpminor.Sreturn None =>
-      OK (Sreturn None)
-  | Csharpminor.Sreturn (Some e) =>
-      do te <- transl_expr cenv e;
-      OK (Sreturn (Some te))
+(*  | Csharpminor.Sreturn None =>
+      OK (Sreturn nil) *)
+  | Csharpminor.Sreturn e =>
+      do te <- transl_exprlist cenv e;
+      OK (Sreturn te)
   | Csharpminor.Slabel lbl s =>
       do ts <- transl_stmt cenv xenv s; OK (Slabel lbl ts)
   | Csharpminor.Sgoto lbl =>
@@ -230,9 +233,7 @@ with transl_lblstmt (cenv: compilenv) (xenv: exit_env) (ls: Csharpminor.lbl_stmt
 Definition block_alignment (sz: Z) : Z :=
   if zlt sz 2 then 1
   else if zlt sz 4 then 2
-  else if zlt sz 8 then 4 
-  else if zlt sz 16 then 8
-  else 16.
+  else if zlt sz 8 then 4 else 8.
 
 Definition assign_variable
     (cenv_stacksize: compilenv * Z) (id_sz: ident * Z) : compilenv * Z :=

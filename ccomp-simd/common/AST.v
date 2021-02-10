@@ -22,6 +22,9 @@ Require Import Errors.
 Require Import Integers.
 Require Import Floats.
 
+(** comcert-simd: vector support is Arch-dependent *)
+Require Import Archi.
+
 Set Implicit Arguments.
 
 (** * Syntactic elements *)
@@ -35,32 +38,36 @@ Definition ident_eq := peq.
 
 Parameter ident_of_string : String.string -> ident.
 
-(** The intermediate languages are weakly typed, using only five
+(** The intermediate languages are weakly typed, using only four
   types: [Tint] for 32-bit integers and pointers, [Tfloat] for 64-bit
-  floating-point numbers, [Tlong] for 64-bit integers, [T128] for
-  128-bit integers, and [Tsingle] for 32-bit floating-point numbers. *)
+  floating-point numbers, [Tlong] for 64-bit integers, [Tsingle]
+  for 32-bit floating-point numbers. [Tvec] is used for simd
+  support (arch. dependent). *)
 
 Inductive typ : Type :=
   | Tint
   | Tfloat
   | Tlong
-  | T128
-  | Tsingle.
+  | Tsingle
+  | Tvec: vec_variant -> typ.
 
 Definition typesize (ty: typ) : Z :=
   match ty with
-  | Tint => 4 
-  | Tfloat => 8 
-  | Tlong => 8 
-  | T128 => 16
-  | Tsingle => 4
+  | Tint => 4
+  | Tfloat | Tlong => 8
+  | Tsingle => 4 
+  | Tvec vtyp => 4 * vec_typesize vtyp 
   end.
 
 Lemma typesize_pos: forall ty, typesize ty > 0.
 Proof. destruct ty; simpl; omega. Qed.
 
 Lemma typ_eq: forall (t1 t2: typ), {t1=t2} + {t1<>t2}.
-Proof. decide equality. Defined.
+Proof. 
+intros t1 t2.
+generalize vec_typ_eq; intros vec_eq_dec.
+decide equality.
+Defined.
 Global Opaque typ_eq.
 
 Definition opt_typ_eq: forall (t1 t2: option typ), {t1=t2} + {t1<>t2}
@@ -76,10 +83,10 @@ Definition subtype (ty1 ty2: typ) : bool :=
   match ty1, ty2 with
   | Tint, Tint => true
   | Tlong, Tlong => true
-  | T128, T128 => true
   | Tfloat, Tfloat => true
   | Tsingle, Tsingle => true
   | Tsingle, Tfloat => true
+  | Tvec vt1, Tvec vt2 => vec_typ_eq vt1 vt2
   | _, _ => false
   end.
 
@@ -99,6 +106,9 @@ Fixpoint subtype_list (tyl1 tyl2: list typ) : bool :=
 These signatures are used in particular to determine appropriate
 calling conventions for the function. *)
 
+(** ccomp-simd: we allow multi-value return values (to handle
+ vtrn-like intrinsics, or struct-on-regs value functions...) *)
+
 Record calling_convention : Type := mkcallconv {
   cc_vararg: bool;
   cc_structret: bool
@@ -109,15 +119,21 @@ Definition cc_default :=
 
 Record signature : Type := mksignature {
   sig_args: list typ;
-  sig_res: option typ;
+  sig_res: list typ;
   sig_cc: calling_convention
 }.
 
-Definition proj_sig_res (s: signature) : typ :=
+(*
+Definition proj_sig_res (s: signature) : list typ :=
   match s.(sig_res) with
-  | None => Tint
-  | Some t => t
+(*
+  | t::nil => t
+  | _ => Tint (* fix this! *)
+*)
+  | nil => Tint::nil
+  | l => l
   end.
+*)
 
 Definition signature_eq: forall (s1 s2: signature), {s1=s2} + {s1<>s2}.
 Proof.
@@ -127,7 +143,7 @@ Defined.
 Global Opaque signature_eq.
 
 Definition signature_main :=
-  {| sig_args := nil; sig_res := Some Tint; sig_cc := cc_default |}.
+  {| sig_args := nil; sig_res := Tint::nil; sig_cc := cc_default |}.
 
 (** Memory accesses (load and store instructions) are annotated by
   a ``memory chunk'' indicating the type, size and signedness of the
@@ -140,12 +156,12 @@ Inductive memory_chunk : Type :=
   | Mint16unsigned  (**r 16-bit unsigned integer *)
   | Mint32          (**r 32-bit integer, or pointer *)
   | Mint64          (**r 64-bit integer *)
-  | Mint128         (**r 128-bit integer *)
   | Mfloat32        (**r 32-bit single-precision float *)
-  | Mfloat64.        (**r 64-bit double-precision float *)
+  | Mfloat64        (**r 64-bit double-precision float *)
+  | Mvec: vec_variant -> memory_chunk.  (**r vector-specific chunk *)
 
 Definition chunk_eq: forall (c1 c2: memory_chunk), {c1=c2} + {c1<>c2}.
-Proof. decide equality. Defined.
+Proof. generalize vec_typ_eq; decide equality. Defined.
 Global Opaque chunk_eq.
 
 (** The type (integer/pointer or float) of a chunk. *)
@@ -158,9 +174,9 @@ Definition type_of_chunk (c: memory_chunk) : typ :=
   | Mint16unsigned => Tint
   | Mint32 => Tint
   | Mint64 => Tlong
-  | Mint128 => T128
   | Mfloat32 => Tsingle
   | Mfloat64 => Tfloat
+  | Mvec t => Tvec t
   end.
 
 Definition type_of_chunk_use (c: memory_chunk) : typ :=
@@ -171,9 +187,9 @@ Definition type_of_chunk_use (c: memory_chunk) : typ :=
   | Mint16unsigned => Tint
   | Mint32 => Tint
   | Mint64 => Tlong
-  | Mint128 => T128
   | Mfloat32 => Tfloat
   | Mfloat64 => Tfloat
+  | Mvec t => Tvec t
   end.
 
 (** The chunk that is appropriate to store and reload a value of
@@ -184,8 +200,8 @@ Definition chunk_of_type (ty: typ) :=
   | Tint => Mint32
   | Tfloat => Mfloat64
   | Tlong => Mint64
-  | T128 => Mint128
   | Tsingle => Mfloat32
+  | Tvec t => Mvec t
   end.
 
 (** Initialization data for global variables. *)
@@ -532,16 +548,34 @@ Qed.
   and associated operations. *)
 
 (** compcert-simd: the EF_builtin constructor was enriched to fit
-    the needs of the sse-builtins. Specifically, we have added an
-    arguments (imms: list int) that stores a list of immediate
-    arguments, i.e. integer arguments resolved at compile time;
+    the needs of the simd-builtins. Specifically, an argument was
+    added to store specific data for simd-builtins (e.g. list of
+    immediate arguments, i.e. integer arguments resolved at compile time);
+*)
+
+(** simd_data carry information needed for handling simd-builtins. The type is 
+ kept abstract (instantiated during extraction) *)
+Parameter simd_data: Type.
+Parameter simd_data_eq: forall (ef1 ef2: simd_data), {ef1=ef2} + {ef1<>ef2}.
+(*
+Record simd_data : Type := { imms: list int
+                           ; two_addr: bool
+                           ; asm_code: String.string}.
+
+Definition simd_data_eq: forall (ef1 ef2: simd_data), {ef1=ef2} + {ef1<>ef2}.
+Proof.
+  generalize String.string_dec; generalize Int.eq_dec; generalize bool_dec; intros.
+  decide equality.
+  apply list_eq_dec; auto.
+Defined.
+Global Opaque simd_data_eq.
 *)
 
 Inductive external_function : Type :=
   | EF_external (name: ident) (sg: signature)
      (** A system call or library function.  Produces an event
          in the trace. *)
-  | EF_builtin (name: ident) (imms:list int) (sg: signature)
+  | EF_builtin (name: ident) (simd: option simd_data) (sg: signature)
      (** A compiler built-in function.  Behaves like an external, but
          can be inlined by the compiler. *)
   | EF_vload (chunk: memory_chunk)
@@ -602,17 +636,17 @@ Fixpoint annot_args_typ (targs: list annot_arg) : list typ :=
 Definition ef_sig (ef: external_function): signature :=
   match ef with
   | EF_external name sg => sg
-  | EF_builtin name imms sg => sg
-  | EF_vload chunk => mksignature (Tint :: nil) (Some (type_of_chunk chunk)) cc_default
-  | EF_vstore chunk => mksignature (Tint :: type_of_chunk chunk :: nil) None cc_default
-  | EF_vload_global chunk _ _ => mksignature nil (Some (type_of_chunk chunk)) cc_default
-  | EF_vstore_global chunk _ _ => mksignature (type_of_chunk chunk :: nil) None cc_default
-  | EF_malloc => mksignature (Tint :: nil) (Some Tint) cc_default
-  | EF_free => mksignature (Tint :: nil) None cc_default
-  | EF_memcpy sz al => mksignature (Tint :: Tint :: nil) None cc_default
-  | EF_annot text targs => mksignature (annot_args_typ targs) None cc_default
-  | EF_annot_val text targ => mksignature (targ :: nil) (Some targ) cc_default
-  | EF_inline_asm text => mksignature nil None cc_default
+  | EF_builtin name _ sg => sg
+  | EF_vload chunk => mksignature (Tint :: nil) ((type_of_chunk chunk)::nil) cc_default
+  | EF_vstore chunk => mksignature (Tint :: type_of_chunk_use chunk :: nil) nil cc_default
+  | EF_vload_global chunk _ _ => mksignature nil ((type_of_chunk chunk)::nil) cc_default
+  | EF_vstore_global chunk _ _ => mksignature (type_of_chunk_use chunk :: nil) nil cc_default
+  | EF_malloc => mksignature (Tint :: nil) (Tint::nil) cc_default
+  | EF_free => mksignature (Tint :: nil) nil cc_default
+  | EF_memcpy sz al => mksignature (Tint :: Tint :: nil) nil cc_default
+  | EF_annot text targs => mksignature (annot_args_typ targs) nil cc_default
+  | EF_annot_val text targ => mksignature (targ :: nil) (targ::nil) cc_default
+  | EF_inline_asm text => mksignature nil nil cc_default
   end.
 
 (** Whether an external function should be inlined by the compiler. *)
@@ -620,7 +654,7 @@ Definition ef_sig (ef: external_function): signature :=
 Definition ef_inline (ef: external_function) : bool :=
   match ef with
   | EF_external name sg => false
-  | EF_builtin name imms sg => true
+  | EF_builtin name _ sg => true
   | EF_vload chunk => true
   | EF_vstore chunk => true
   | EF_vload_global chunk id ofs => true
@@ -645,7 +679,9 @@ Definition ef_reloads (ef: external_function) : bool :=
 
 Definition external_function_eq: forall (ef1 ef2: external_function), {ef1=ef2} + {ef1<>ef2}.
 Proof.
-  generalize ident_eq signature_eq chunk_eq typ_eq zeq Int.eq_dec list_eq_dec.  intros; decide equality.
+  generalize ident_eq signature_eq chunk_eq typ_eq zeq Int.eq_dec; intros.
+  decide equality.
+  decide equality; apply simd_data_eq.
   apply list_eq_dec. decide equality. apply Float.eq_dec. 
 Defined.
 Global Opaque external_function_eq.

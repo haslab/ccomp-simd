@@ -21,9 +21,11 @@ Require Inlining.
 Require ValueDomain.
 Require Tailcall.
 Require Allocation.
+Require Ctypes.
 Require Compiler.
-Require MachIRTaintAnalysis.
-Require AbstractMemory.
+Require Parser.
+Require Initializers.
+Require Int31.
 
 (* Standard lib *)
 Require Import ExtrOcamlBasic.
@@ -38,6 +40,8 @@ Extraction Inline Wfsimpl.Fix Wfsimpl.Fixm.
 (* AST *)
 Extract Constant AST.ident_of_string =>
   "fun s -> Camlcoq.intern_string (Camlcoq.camlstring_of_coqstring s)".
+Extract Constant AST.simd_data => "Builtindata.builtin_data".
+Extract Constant AST.simd_data_eq => "Builtindata.builtin_data_eq".
 
 (* Memory - work around an extraction bug. *)
 Extraction NoInline Memory.Mem.valid_pointer.
@@ -51,6 +55,15 @@ Extract Constant Iteration.GenIter.iterate =>
   "let rec iter f a =
      match f a with Coq_inl b -> Some b | Coq_inr a' -> iter f a'
    in iter".
+
+(* Selection *)
+
+Extract Constant SelectLong.get_helper =>
+  "fun ge s sg ->
+     Errors.OK (Camlcoq.intern_string (Camlcoq.camlstring_of_coqstring s))".
+Extract Constant SelectLong.get_builtin =>
+  "fun s sg ->
+     Errors.OK (Camlcoq.intern_string (Camlcoq.camlstring_of_coqstring s))".
 
 (* RTLgen *)
 Extract Constant RTLgen.compile_switch => "RTLgenaux.compile_switch".
@@ -71,6 +84,10 @@ Extract Constant Linearize.enumerate_aux => "Linearizeaux.enumerate_aux".
 Extract Constant SimplExpr.first_unused_ident => "Camlcoq.first_unused_ident".
 Extraction Inline SimplExpr.ret SimplExpr.error SimplExpr.bind SimplExpr.bind2.
 
+(* SimplLocals *)
+Extract Constant SimplLocals.first_unused_ident => "Camlcoq.first_unused_ident".
+Extraction Inline SimplLocals.ret SimplLocals.error SimplLocals.bind.
+
 (* Compopts *)
 Extract Constant Compopts.optim_for_size =>
   "fun _ -> !Clflags.option_Osize".
@@ -90,14 +107,28 @@ Extract Constant Compiler.print_RTL => "PrintRTL.print_if".
 Extract Constant Compiler.print_LTL => "PrintLTL.print_if".
 Extract Constant Compiler.print_Mach => "PrintMach.print_if".
 Extract Constant Compiler.print => "fun (f: 'a -> unit) (x: 'a) -> f x; x".
+Extract Constant Compiler.time  => "Clflags.time_coq".
+
 (*Extraction Inline Compiler.apply_total Compiler.apply_partial.*)
 
-(* Static Analysis *)
-Extract Constant ABlock.string_of_ident =>
-  "fun g -> Camlcoq.(coqstring_of_camlstring (extern_atom g))".
+(* Cabs *)
+Extract Constant Cabs.cabsloc => 
+"{ lineno : int;
+   filename: string;
+   byteno: int;
+   ident : int;
+ }".
+Extract Constant Cabs.string => "String.t".
+Extract Constant Cabs.char_code => "int64".
 
-Extract Constant ClassifyBuiltIns.simd_infer_data =>
-  "CXBuiltins.simd_builtin_infer_stype".
+(* Int31 *)
+Extract Inductive Int31.digits => "bool" [ "false" "true" ].
+Extract Inductive Int31.int31 => "int" [ "Camlcoq.Int31.constr" ] "Camlcoq.Int31.destr".
+Extract Constant Int31.twice => "Camlcoq.Int31.twice".
+Extract Constant Int31.twice_plus_one => "Camlcoq.Int31.twice_plus_one".
+Extract Constant Int31.compare31 => "Camlcoq.Int31.compare".
+Extract Constant Int31.On => "0".
+Extract Constant Int31.In => "1".
 
 (* Processor-specific extraction directives *)
 
@@ -123,13 +154,13 @@ Cd "extraction".
 Separate Extraction
    Compiler.transf_c_program Compiler.transf_cminor_program
    Cexec.do_initial_state Cexec.do_step Cexec.at_final_state
+   Ctypes.merge_attributes Ctypes.remove_attributes
    Initializers.transl_init Initializers.constval
    Csyntax.Eindex Csyntax.Epreincr
    Conventions1.dummy_int_reg Conventions1.dummy_float_reg
    RTL.instr_defs RTL.instr_uses
-   MachIR.successors
-   MachIRTaintAnalysis.Inference.run
-   AdomLib.unit_wlat AdomLib.botlift_leb AdomLib.botlift_combine
-   AbstractMemory.partitioned_abstract_mem
    Machregs.mregs_for_operation Machregs.mregs_for_builtin
-   Machregs.two_address_op Machregs.is_stack_reg.
+   Machregs.two_address_op Machregs.is_stack_reg
+   Parser.translation_unit_file
+Op.offset_addressing Machregs.temp_for_parent_frame Machregs.destroyed_by_setstack Machregs.destroyed_by_op Machregs.destroyed_by_load Machregs.destroyed_by_store Machregs.destroyed_by_cond Machregs.destroyed_by_jumptable Machregs.destroyed_at_function_entry
+.

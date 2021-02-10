@@ -25,6 +25,7 @@ let floatlit =
  ("-"? (['0'-'9'] ['0'-'9' '_']* 
   ('.' ['0'-'9' '_']* )?
   (['e' 'E'] ['+' '-']? ['0'-'9'] ['0'-'9' '_']*)? )) | "inf" | "nan"
+let floatxlit = "0.0x" ['0'-'9' 'a'-'f' 'A'-'F']+
 let ident = ['A'-'Z' 'a'-'z' '_'] ['A'-'Z' 'a'-'z' '_' '$' '0'-'9']*
 let qident = '\'' [ ^ '\'' ]+ '\''
 let temp = "$" ['1'-'9'] ['0'-'9']*
@@ -85,8 +86,6 @@ rule token = parse
   | ">>l"    { GREATERGREATERL }
   | ">>lu"    { GREATERGREATERLU }
   | "if"    { IF }
-  | "in"    { IN }
-  | "inline" { INLINE }
   | "int"    { INT }
   | "int16"    { INT16 }
   | "int16s"    { INT16S }
@@ -114,7 +113,6 @@ rule token = parse
   | "<=lu"    { LESSEQUALLU }
   | "<<"    { LESSLESS }
   | "<<l"    { LESSLESSL }
-  | "let"     { LET }
   | "long"    { LONG }
   | "longofint" { LONGOFINT }
   | "longofintu" { LONGOFINTU }
@@ -152,10 +150,10 @@ rule token = parse
   | "*f"    { STARF }
   | "*l"    { STARL }
   | "switch"    { SWITCH }
-  | "t128"    { T128 }
   | "tailcall"  { TAILCALL }
   | "~"    { TILDE }
   | "~l"    { TILDEL }
+  | "t128"  { TVEC }
   | "var"    { VAR }
   | "void"    { VOID }
   | "volatile" { VOLATILE }
@@ -165,6 +163,8 @@ rule token = parse
                 LONGLIT(Int64.of_string(String.sub s 0 (String.length s - 2))) }
   | intlit    { INTLIT(Int32.of_string(Lexing.lexeme lexbuf)) }
   | floatlit     { FLOATLIT(float_of_string(Lexing.lexeme lexbuf)) }
+  | floatxlit     { let s = Lexing.lexeme lexbuf in
+            FLOATXLIT(Int64.of_string(String.sub s 2 (String.length s-2)))}
   | stringlit { let s = Lexing.lexeme lexbuf in
                 STRINGLIT(String.sub s 1 (String.length s - 2)) }
   | ident | temp  { IDENT(Lexing.lexeme lexbuf) }

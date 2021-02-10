@@ -1,0 +1,38 @@
+#based on the templates of https://github.com/github/gitignore
+#
+# generated during build
+_build
+ccomp
+driver/Configuration.ml
+#ndfun and corresponding generated files
+tools/ndfun
+backend/SelectLong.v
+/backend/SelectDiv.v
+arm/ConstpropOp.v
+arm/SelectOp.v
+ia32/ConstpropOp.v
+ia32/SelectOp.v
+#html doc
+doc/coq2html.ml
+doc/coq2html
+doc/html
+# Extracted files
+extraction/*.mli
+extraction/*.ml
+extraction/STAMP
+# Emacs
+*~
+# Coq
+*.vo
+*.glob
+*.v.d
+# OCaml (and C)
+*.annot
+*.cmo
+*.cma
+*.cmi
+*.a
+*.o
+*.cmx
+*.cmxs
+*.cmxa

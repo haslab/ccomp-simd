@@ -30,7 +30,7 @@ for arg in $INCLUDES; do
 done
 
 BD=$PWD/_build
-OCAMLINCLUDES=" -I $BD/extraction -I $BD/lib -I $BD/common -I $BD/cparser -I $BD/backend -I $BD/driver -I $BD/cfrontend -I $BD/ia32"
+OCAMLINCLUDES=" -I $BD/extraction -I $BD/lib -I $BD/common -I $BD/cparser -I $BD/backend -I $BD/driver -I $BD/cfrontend -I $BD/ia32 -I $BD/arm"
 OCAMLPROGNAME="\"ocaml"$OCAMLINCLUDES\"
 
 

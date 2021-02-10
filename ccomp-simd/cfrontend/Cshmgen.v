@@ -54,6 +54,10 @@ Definition make_floatconst (f: float) :=  Econst (Ofloatconst f).
 
 Definition make_longconst (f: int64) :=  Econst (Olongconst f).
 
+(*
+Definition make_vecconst (f: int128) :=  Econst (Ovecconst f).
+*)
+
 Definition make_floatofint (e: expr) (sg: signedness) (sz: floatsize) :=
   match sg, sz with
   | Signed, F64 => Eunop Ofloatofint e
@@ -165,9 +169,17 @@ Definition make_notbool (e: expr) (ty: type) :=
 Definition make_neg (e: expr) (ty: type) :=
   match classify_neg ty with
   | neg_case_i _ => OK (Eunop Onegint e)
-  | neg_case_f => OK (Eunop Onegf e)
+  | neg_case_f _ => OK (Eunop Onegf e)
   | neg_case_l _ => OK (Eunop Onegl e)
   | _ => Error (msg "Cshmgen.make_neg")
+  end.
+
+Definition make_absfloat (e: expr) (ty: type) :=
+  match classify_neg ty with
+  | neg_case_i sg => OK (Eunop Oabsf (make_floatofint e sg F64))
+  | neg_case_f _ => OK (Eunop Oabsf e)
+  | neg_case_l sg => OK (Eunop Oabsf (make_floatoflong e sg F64))
+  | _ => Error (msg "Cshmgen.make_absfloat")
   end.
 
 Definition make_notint (e: expr) (ty: type) :=
@@ -188,7 +200,7 @@ Definition make_binarith (iop iopu fop lop lopu: binary_operation)
   match c with
   | bin_case_i Signed => OK (Ebinop iop e1' e2')
   | bin_case_i Unsigned => OK (Ebinop iopu e1' e2')
-  | bin_case_f => OK (Ebinop fop e1' e2')
+  | bin_case_f _ => OK (Ebinop fop e1' e2')
   | bin_case_l Signed => OK (Ebinop lop e1' e2')
   | bin_case_l Unsigned => OK (Ebinop lopu e1' e2')
   | bin_default => Error (msg "Cshmgen.make_binarith")
@@ -196,16 +208,16 @@ Definition make_binarith (iop iopu fop lop lopu: binary_operation)
 
 Definition make_add (e1: expr) (ty1: type) (e2: expr) (ty2: type) :=
   match classify_add ty1 ty2 with
-  | add_case_pi ty _ =>
+  | add_case_pi ty =>
       let n := make_intconst (Int.repr (Ctypes.sizeof ty)) in
       OK (Ebinop Oadd e1 (Ebinop Omul n e2))
-  | add_case_ip ty _ =>
+  | add_case_ip ty =>
       let n := make_intconst (Int.repr (Ctypes.sizeof ty)) in
       OK (Ebinop Oadd e2 (Ebinop Omul n e1))
-  | add_case_pl ty _ =>
+  | add_case_pl ty =>
       let n := make_intconst (Int.repr (Ctypes.sizeof ty)) in
       OK (Ebinop Oadd e1 (Ebinop Omul n (Eunop Ointoflong e2)))
-  | add_case_lp ty _ =>
+  | add_case_lp ty =>
       let n := make_intconst (Int.repr (Ctypes.sizeof ty)) in
       OK (Ebinop Oadd e2 (Ebinop Omul n (Eunop Ointoflong e1)))
   | add_default =>
@@ -214,13 +226,13 @@ Definition make_add (e1: expr) (ty1: type) (e2: expr) (ty2: type) :=
 
 Definition make_sub (e1: expr) (ty1: type) (e2: expr) (ty2: type) :=
   match classify_sub ty1 ty2 with
-  | sub_case_pi ty _ =>
+  | sub_case_pi ty =>
       let n := make_intconst (Int.repr (Ctypes.sizeof ty)) in
       OK (Ebinop Osub e1 (Ebinop Omul n e2))
   | sub_case_pp ty =>
       let n := make_intconst (Int.repr (Ctypes.sizeof ty)) in
       OK (Ebinop Odivu (Ebinop Osub e1 e2) n)
-  | sub_case_pl ty _ =>
+  | sub_case_pl ty =>
       let n := make_intconst (Int.repr (Ctypes.sizeof ty)) in
       OK (Ebinop Osub e1 (Ebinop Omul n (Eunop Ointoflong e2)))
   | sub_default =>
@@ -244,7 +256,7 @@ Definition make_binarith_int (iop iopu lop lopu: binary_operation)
   | bin_case_i Unsigned => OK (Ebinop iopu e1' e2')
   | bin_case_l Signed => OK (Ebinop lop e1' e2')
   | bin_case_l Unsigned => OK (Ebinop lopu e1' e2')
-  | bin_case_f | bin_default => Error (msg "Cshmgen.make_binarith_int")
+  | bin_case_f _ | bin_default => Error (msg "Cshmgen.make_binarith_int")
   end.
 
 Definition make_mod (e1: expr) (ty1: type) (e2: expr) (ty2: type) :=
@@ -308,7 +320,7 @@ Definition make_load (addr: expr) (ty_res: type) :=
   by-copy assignment of a value of Clight type [ty]. *)
 
 Definition make_memcpy (dst src: expr) (ty: type) :=
-  Sbuiltin None (EF_memcpy (Ctypes.sizeof ty) (Ctypes.alignof_blockcopy ty))
+  Sbuiltin nil (EF_memcpy (Ctypes.sizeof ty) (Ctypes.alignof_blockcopy ty))
                 (dst :: src :: nil).
 
 (** [make_store addr ty rhs] stores the value of the
@@ -330,7 +342,7 @@ Definition transl_unop (op: Cop.unary_operation) (a: expr) (ta: type) : res expr
   | Cop.Onotbool => make_notbool a ta
   | Cop.Onotint => make_notint a ta
   | Cop.Oneg => make_neg a ta
-  | Cop.Oabsfloat => OK (Eunop Oabsf a)
+  | Cop.Oabsfloat => make_absfloat a ta
   end.
 
 Definition transl_binop (op: Cop.binary_operation)
@@ -369,6 +381,9 @@ Fixpoint transl_expr (a: Clight.expr) {struct a} : res expr :=
       OK(make_floatconst n)
   | Clight.Econst_long n _ =>
       OK(make_longconst n)
+  | Clight.Econst_vec n _ =>
+(*      OK(make_vecconst n)*)
+      Error(msg "Cshmgen.transl_expr(vecconst)")
   | Clight.Evar id ty =>
       make_load (Eaddrof id) ty
   | Clight.Etempvar id ty =>
@@ -510,7 +525,7 @@ Fixpoint transl_statement (tyret: type) (nbrk ncnt: nat)
           do tb <- transl_expr b;
           do tcl <- transl_arglist cl args;
           OK(Scall x {| sig_args := typlist_of_arglist cl args;
-                        sig_res  := opttyp_of_type res;
+                        sig_res  := rettyp_of_type res;
                         sig_cc   := cconv |}
                    tb tcl)
       | _ => Error(msg "Cshmgen.transl_stmt(call)")
@@ -535,12 +550,19 @@ Fixpoint transl_statement (tyret: type) (nbrk ncnt: nat)
       OK (Sexit nbrk)
   | Clight.Scontinue =>
       OK (Sexit ncnt)
-  | Clight.Sreturn (Some e) =>
-      do te <- transl_expr e;
-      do te' <- make_cast (typeof e) tyret te;
-      OK (Sreturn (Some te'))
-  | Clight.Sreturn None =>
-      OK (Sreturn None)
+  | Clight.Sreturn e =>
+      do te <- transl_arglist e Tnil;
+      OK (Sreturn te)
+(*      match ha_type (Clight.typeof e) with
+      | None => do te <- transl_expr e;
+                do te' <- make_cast (typeof e) tyret te;
+                OK (Sreturn (te'::nil))
+      | Some _ => let ee := ha_selectors (Clight.typeof e) e in
+                  do tee <- transl_arglist ee Tnil;
+                  OK (Sreturn tee)
+      end*)
+(*  | Clight.Sreturn None =>
+      OK (Sreturn nil) *)
   | Clight.Sswitch a sl =>
       do ta <- transl_expr a;
       do tsl <- transl_lbl_stmt tyret 0%nat (S ncnt) sl;
@@ -570,7 +592,7 @@ Definition transl_var (v: ident * type) := (fst v, sizeof (snd v)).
 
 Definition signature_of_function (f: Clight.function) :=
   {| sig_args := map typ_of_type (map snd (Clight.fn_params f));
-     sig_res  := opttyp_of_type (Clight.fn_return f);
+     sig_res  := rettyp_of_type (Clight.fn_return f);
      sig_cc   := Clight.fn_callconv f |}.
 
 Definition transl_function (f: Clight.function) : res function :=

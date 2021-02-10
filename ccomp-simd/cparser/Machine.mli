@@ -45,7 +45,8 @@ type t = {
   alignof_fun: int option;
   bigendian: bool;
   bitfields_msb_first: bool;
-  struct_return_as_int: int
+  struct_return_as_int: int;
+  homfstruct_size: int
 }
 
 val ilp32ll64 : t

@@ -47,6 +47,7 @@ Fixpoint simple (a: expr) : Prop :=
   | Ederef r _ => simple r
   | Efield l1 _ _ => simple l1
   | Eval _ _ => True
+  | EvalStruct _ _ => True
   | Evalof l _ => simple l
   | Eaddrof l _ => simple l
   | Eunop _ r1 _ => simple r1
@@ -200,6 +201,7 @@ Lemma rred_compat:
   simple r ->
   m = m' /\ compat_eval RV e r r' m.
 Proof.
+admit (*
   intros until m'; intros RED SIMP. inv RED; simpl in SIMP; try contradiction; split; auto; split; auto; intros vx EV.
   inv EV. econstructor. constructor. auto. auto. 
   inv EV. econstructor. constructor.
@@ -214,7 +216,7 @@ Proof.
   inv EV. constructor.
   inv EV. constructor.
   econstructor; eauto. constructor.
-  inv EV. econstructor. constructor. auto. 
+  inv EV. econstructor. constructor. auto. *).
 Qed.
 
 Lemma compat_eval_context:
@@ -503,8 +505,6 @@ Proof.
   inv EQ2. simpl in H2; inv H2. assumption.
   (* long *)
   destruct ty; inv EQ2. simpl in H2; inv H2. assumption.
-  (* V128 *)
-  destruct ty; inv EQ2.
   (* float *)
   destruct ty; try discriminate. 
   destruct f1; inv EQ2; simpl in H2; inv H2; assumption.
@@ -515,6 +515,8 @@ Proof.
     destruct i; inv H5. intuition congruence. auto.
   destruct H4; subst. destruct (Genv.find_symbol ge b1); inv H. 
   rewrite Int.add_zero in H3. auto.
+  (* vec *)
+  discriminate.
   (* undef *)
   discriminate.
 Qed.
@@ -534,7 +536,6 @@ Proof.
   inv EQ2; auto.
   destruct ty; inv EQ2; auto.
   destruct ty; try discriminate.
-  destruct ty; try discriminate.
   destruct f0; inv EQ2; auto.
   destruct ty; try discriminate.
   destruct i0; auto.
@@ -542,6 +543,7 @@ Proof.
   inv EQ2.
   inv EQ2; auto.
   inv EQ2.
+  inv EQ2; auto.
   inv EQ2; auto.
   inv EQ2; auto.
 Qed.
@@ -564,6 +566,16 @@ Proof.
   rewrite IHd1. omega.
 Qed.
 
+Remark union_field_size:
+  forall f ty fl, field_type f fl = OK ty -> sizeof ty <= sizeof_union fl.
+Proof.
+  induction fl; simpl; intros. 
+- inv H.
+- destruct (ident_eq f i). 
+  + inv H. xomega. 
+  + specialize (IHfl H). xomega. 
+Qed.
+
 Lemma transl_init_size:
   forall i ty data,
   transl_init ty i = OK data ->
@@ -578,45 +590,44 @@ with transl_init_list_size:
   (forall id ty fl pos data,
    transl_init_struct id ty fl il pos = OK data ->
    sizeof_struct fl pos <= sizeof ty ->
-   idlsize data + pos = sizeof ty)
-  /\
-  (forall id ty ty1 data,
-   transl_init_union id ty ty1 il = OK data ->
-   sizeof ty1 <= sizeof ty ->
-   idlsize data = sizeof ty).
+   idlsize data + pos = sizeof ty).
 
 Proof.
 - induction i; intros. 
 + (* single *)
   monadInv H. simpl. erewrite transl_init_single_size by eauto. omega. 
-+ (* compound *)
++ (* array *)
   simpl in H. destruct ty; try discriminate.
-* (* compound array *)
   simpl. eapply (proj1 (transl_init_list_size il)); eauto.
-* (* compound struct *)
++ (* struct *)
+  simpl in H. destruct ty; try discriminate.
   replace (idlsize data) with (idlsize data + 0) by omega.
-  eapply (proj1 (proj2 (transl_init_list_size il))). eauto.
+  eapply (proj2 (transl_init_list_size il)). eauto.
 Local Opaque alignof.
   simpl. apply align_le. apply alignof_pos.
-* (* compound union *)
-  set (sz := sizeof (Tunion i f a)) in *.
-  destruct f.
-  inv H. simpl. assert (sz >= 0) by (apply sizeof_pos). xomega. 
-  eapply (proj2 (proj2 (transl_init_list_size il))). eauto. 
-  simpl. eapply Zle_trans. 2: apply align_le. xomega. apply alignof_pos. 
++ (* union *)
+  simpl in H. destruct ty; try discriminate.
+  set (sz := sizeof (Tunion i0 f0 a)) in *.
+  monadInv H. rewrite idlsize_app. rewrite (IHi _ _ EQ1). 
+  rewrite padding_size. omega. unfold sz. simpl. 
+  apply Zle_trans with (sizeof_union f0). eapply union_field_size; eauto.
+  apply align_le. apply alignof_pos. 
 
 - induction il.
 + (* base cases *)
   simpl. intuition. 
 * (* arrays *)
-  destruct (zeq sz 0); inv H. simpl. ring. 
+  destruct (zeq sz 0).  inv H.  simpl; ring. 
+  destruct (zle 0 sz);  inv H.  simpl. 
+  rewrite Z.mul_comm. 
+  assert (0 <= sizeof ty * sz).
+  { apply Zmult_gt_0_le_0_compat. omega. generalize (sizeof_pos ty); omega. }
+  zify; omega.
 * (* structs *)
   destruct fl; inv H.
-  simpl in H0. rewrite padding_size by omega. omega. 
-* (* unions *)
-  inv H.
+  simpl in H0. rewrite padding_size by omega. omega.
 + (* inductive cases *)
-  destruct IHil as [A [B C]]. split; [idtac|split].
+  destruct IHil as [A B]. split.
 * (* arrays *)
   intros. monadInv H.
   rewrite idlsize_app.
@@ -631,11 +642,6 @@ Local Opaque alignof.
   rewrite (transl_init_size _ _ _ EQ). 
   rewrite <- (B _ _ _ _ _ EQ1). omega.
   auto. apply align_le. apply alignof_pos. 
-* (* unions *)
-  intros. simpl in H. monadInv H. 
-  rewrite idlsize_app.
-  rewrite (transl_init_size _ _ _ EQ). 
-  rewrite padding_size. omega. auto.
 Qed.
 
 (** A semantics for general initializers *)
@@ -657,19 +663,21 @@ Inductive exec_init: mem -> block -> Z -> type -> initializer -> mem -> Prop :=
       access_mode ty = By_value chunk ->
       Mem.store chunk m' b ofs v = Some m'' ->
       exec_init m b ofs ty (Init_single a) m''
-  | exec_init_compound_array: forall m b ofs ty sz a il m',
+  | exec_init_array_: forall m b ofs ty sz a il m',
       exec_init_array m b ofs ty sz il m' ->
-      exec_init m b ofs (Tarray ty sz a) (Init_compound il) m'
-  | exec_init_compound_struct: forall m b ofs id fl a il m',
+      exec_init m b ofs (Tarray ty sz a) (Init_array il) m'
+  | exec_init_struct: forall m b ofs id fl a il m',
       exec_init_list m b ofs (fields_of_struct id (Tstruct id fl a) fl 0) il m' ->
-      exec_init m b ofs (Tstruct id fl a) (Init_compound il) m'
-  | exec_init_compound_union: forall m b ofs id id1 ty1 fl a i m',
-      exec_init m b ofs ty1 i m' ->
-      exec_init m b ofs (Tunion id (Fcons id1 ty1 fl) a) (Init_compound (Init_cons i Init_nil)) m'
+      exec_init m b ofs (Tstruct id fl a) (Init_struct il) m'
+  | exec_init_union: forall m b ofs id fl a f i ty m',
+      field_type f fl = OK ty ->
+      exec_init m b ofs ty i m' ->
+      exec_init m b ofs (Tunion id fl a) (Init_union f i) m'
 
 with exec_init_array: mem -> block -> Z -> type -> Z -> initializer_list -> mem -> Prop :=
-  | exec_init_array_nil: forall m b ofs ty,
-      exec_init_array m b ofs ty 0 Init_nil m
+  | exec_init_array_nil: forall m b ofs ty sz,
+      sz >= 0 ->
+      exec_init_array m b ofs ty sz Init_nil m
   | exec_init_array_cons: forall m b ofs ty sz i1 il m' m'',
       exec_init m b ofs ty i1 m' ->
       exec_init_array m' b (ofs + sizeof ty) ty (sz - 1) il m'' ->
@@ -737,11 +745,14 @@ Local Opaque sizeof.
 - (* struct *)
   replace ofs with (ofs + 0) by omega. eauto.
 - (* union *)
-  monadInv H1. eapply store_init_data_list_app. eauto.
+  rewrite H in H2. monadInv H2. inv EQ.  
+  eapply store_init_data_list_app. eauto.
   apply store_init_data_list_padding. 
 
 - (* array, empty *)
-  inv H. auto.
+  destruct (zeq sz 0).
+  inv H0. auto.
+  rewrite zle_true in H0 by omega. inv H0. auto.
 - (* array, nonempty *)
   monadInv H3. 
   eapply store_init_data_list_app.

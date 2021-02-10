@@ -361,6 +361,15 @@ Proof.
   induction il; simpl. auto. apply set_var_lessdef; auto.
 Qed.
 
+Lemma set_ret_lessdef:
+  forall e1 e2 il v1 v2,
+  env_lessdef e1 e2 -> Val.lessdef_list v1 v2 ->
+  env_lessdef (set_ret il v1 e1) (set_ret il v2 e2).
+Proof.
+  induction il; simpl; auto.
+  destruct v1; intros; inv H0; apply set_var_lessdef; auto.
+Qed.
+
 (** Semantic preservation for expressions. *)
 
 Lemma sel_expr_correct:
@@ -446,7 +455,7 @@ Inductive match_states: Cminor.state -> CminorSel.state -> Prop :=
         (Callstate (sel_fundef hf ge f) args' k' m')
   | match_returnstate: forall v v' k k' m m',
       match_cont k k' ->
-      Val.lessdef v v' ->
+      Val.lessdef_list v v' ->
       Mem.extends m m' ->
       match_states
         (Cminor.Returnstate v k m)
@@ -462,12 +471,12 @@ Inductive match_states: Cminor.state -> CminorSel.state -> Prop :=
         (State (sel_function hf ge f) (Sbuiltin optid ef al) k' sp e' m')
   | match_builtin_2: forall v v' optid f sp e k m e' m' k',
       match_cont k k' ->
-      Val.lessdef v v' ->
+      Val.lessdef_list v v' ->
       env_lessdef e e' ->
       Mem.extends m m' ->
       match_states
         (Cminor.Returnstate v (Cminor.Kcall optid f sp e k) m)
-        (State (sel_function hf ge f) Sskip k' sp (set_optvar optid v' e') m').
+        (State (sel_function hf ge f) Sskip k' sp (set_ret optid v' e') m').
 
 Remark call_cont_commut:
   forall k k', match_cont k k' -> match_cont (Cminor.call_cont k) (call_cont k').
@@ -505,8 +514,10 @@ Proof.
   apply IHs. constructor; auto.
 (* block *)
   apply IHs. constructor; auto.
+(*
 (* return *)
   destruct o; simpl; auto. 
+*)
 (* label *)
   destruct (ident_eq lbl l). auto. apply IHs; auto.
 Qed.
@@ -589,7 +600,9 @@ Proof.
   econstructor. eauto. eapply external_call_symbols_preserved; eauto.
   exact symbols_preserved. exact varinfo_preserved.
   constructor; auto.
-  destruct optid; simpl; auto. apply set_var_lessdef; auto.
+  destruct optid; simpl; auto. 
+  destruct vres; inv B;
+  apply set_var_lessdef; auto; apply set_ret_lessdef; auto.
   (* Seq *)
   left; econstructor; split. constructor. constructor; auto. constructor; auto.
   (* Sifthenelse *)
@@ -611,14 +624,16 @@ Proof.
   (* Sswitch *)
   exploit sel_expr_correct; eauto. intros [v' [A B]]. inv B.
   left; econstructor; split. econstructor; eauto. constructor; auto.
+(*
   (* Sreturn None *)
   exploit Mem.free_parallel_extends; eauto. intros [m2' [P Q]].
   left; econstructor; split. 
   econstructor. simpl; eauto. 
   constructor; auto. apply call_cont_commut; auto.
+*)
   (* Sreturn Some *)
   exploit Mem.free_parallel_extends; eauto. intros [m2' [P Q]].
-  exploit sel_expr_correct; eauto. intros [v' [A B]].
+  exploit sel_exprlist_correct; eauto. intros [v' [A B]].
   left; econstructor; split. 
   econstructor; eauto.
   constructor; auto. apply call_cont_commut; auto.
@@ -658,10 +673,14 @@ Proof.
   inv H2. 
   left; econstructor; split. 
   econstructor. 
-  constructor; auto. destruct optid; simpl; auto. apply set_var_lessdef; auto.
+  constructor; auto. destruct optid; simpl; auto. 
+  destruct v; inv H4;
+  apply set_var_lessdef; auto; apply set_ret_lessdef; auto.
   (* return of an external call turned into a Sbuiltin *)
   right; split. omega. split. auto. constructor; auto. 
-  destruct optid; simpl; auto. apply set_var_lessdef; auto.
+  destruct optid; simpl; auto. 
+  destruct v; inv H8;
+  apply set_var_lessdef; auto; apply set_ret_lessdef; auto.
 Qed.
 
 Lemma sel_initial_states:
@@ -682,14 +701,14 @@ Lemma sel_final_states:
   forall S R r,
   match_states S R -> Cminor.final_state S r -> final_state R r.
 Proof.
-  intros. inv H0. inv H. inv H3. inv H5. constructor.
+  intros. inv H0. inv H. inv H3. inv H5. inv H3. inv H1.
+  constructor.
 Qed.
 
 End PRESERVATION.
 
 Axiom get_helpers_correct:
-  forall prog hf, get_helpers prog = OK hf
-                  -> i64_helpers_correct (Genv.globalenv prog) hf.
+  forall ge hf, get_helpers ge = OK hf -> i64_helpers_correct ge hf.
 
 Theorem transf_program_correct:
   forall prog tprog,
@@ -697,7 +716,7 @@ Theorem transf_program_correct:
   forward_simulation (Cminor.semantics prog) (CminorSel.semantics tprog).
 Proof.
   intros. unfold sel_program in H. 
-  destruct (get_helpers prog) as [hf|] eqn:E; simpl in H; try discriminate.
+  destruct (get_helpers (Genv.globalenv prog)) as [hf|] eqn:E; simpl in H; try discriminate.
   inv H.
   eapply forward_simulation_opt.
   apply symbols_preserved.
