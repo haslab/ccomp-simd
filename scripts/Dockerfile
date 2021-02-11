@@ -14,5 +14,5 @@ RUN wget http://compcert.inria.fr/release/compcert-2.2.tgz
 
 RUN git clone https://github.com/haslab/ccomp-simd.git
 
-RUN (cd ccomp-simd; tar xvzf ../compcert-2.2.tgz; make clean_setup_build_dir; cd build; ./configure ia32-linux; make depend; make)
+#RUN (cd ccomp-simd; tar xvzf ../compcert-2.2.tgz; make clean_setup_build_dir; cd build; ./configure ia32-linux; make depend; make)
 
