@@ -9,7 +9,6 @@ backend
 cfrontend
 checklink
 common
-configure
 coq
 cparser
 doc
@@ -17,7 +16,7 @@ driver
 exportclight
 extraction
 flocq
-ia32
+arm
 lib
 myocamlbuild.ml
 pg

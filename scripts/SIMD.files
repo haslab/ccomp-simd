@@ -1,4 +1,5 @@
 Makefile
+Makefile.config
 VERSION
 backend
 cfrontend
@@ -7,11 +8,9 @@ cparser
 configure
 driver
 extraction
-ia32
+arm
 lib
 pg
-taintanalysis
 
 ./test:
-simd
-taintanalysis
+neon
