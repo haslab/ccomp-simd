@@ -1,6 +1,5 @@
 # **ccomp-simd** - ARM SIMD extensions for CompCert
 
-# **ccomp-simd** - SIMD extensions for CompCert
 
 This is a(n incomplete) prototype of the ARM **ccomp-simd** tool -- an extension of the
 *CompCert - a certified compiler for C*
