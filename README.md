@@ -30,7 +30,7 @@ following packages/versions:
 The simplest way of experimenting with **ccomp-simd** is by resorting to a _Docker_ container that includes all the mentioned packages. A [Dockerfile](scripts/Dockerfile) is provided for it:
 
 ```
-docker build https://raw.githubusercontent.com/haslab/ccomp-simd/master/scripts/Dockerfile
+docker build https://raw.githubusercontent.com/haslab/ccomp-simd/v23ArmNeon/scripts/Dockerfile
 ```
 
 The build process creates a _docker_ container with all the required packages and the (pre-compiled) **ccomp**.
