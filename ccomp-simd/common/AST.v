@@ -489,7 +489,7 @@ Inductive external_function : Type :=
   | EF_external (name: string) (sg: signature)
      (** A system call or library function.  Produces an event
          in the trace. *)
-  | EF_builtin (name: string) (adata: builtin_data) (sg: signature)
+  | EF_builtin (name: string) (adata: option builtin_data) (sg: signature)
      (** A compiler built-in function.  Behaves like an external, but
          can be inlined by the compiler. *)
   | EF_runtime (name: string) (sg: signature)

@@ -1496,9 +1496,9 @@ Axiom inline_assembly_properties:
 (** ** Combined semantics of external calls *)
 
 Definition builtin_or_external_sem name adata sg :=
-  match lookup_builtin_function name sg with
-  | Some bf => known_builtin_sem bf
-  | _ => external_functions_sem name adata sg
+  match lookup_builtin_function name sg, adata with
+  | Some bf, None => known_builtin_sem bf
+  | _, _ => external_functions_sem name adata sg
   end.
 
 Lemma builtin_or_external_sem_ok: forall name adata sg,
@@ -1507,7 +1507,9 @@ Proof.
   unfold builtin_or_external_sem; intros. 
   destruct (lookup_builtin_function name sg) as [bf|] eqn:L.
 - exploit lookup_builtin_function_sig; eauto. intros EQ; subst sg.
-  apply known_builtin_ok.
+  destruct adata.
+  + apply external_functions_properties.
+  + apply known_builtin_ok.
 - apply external_functions_properties.
 Qed.
 
@@ -1525,7 +1527,7 @@ This predicate is used in the semantics of all CompCert languages. *)
 Definition external_call (ef: external_function): extcall_sem :=
   match ef with
   | EF_external name sg  => external_functions_sem name None sg
-  | EF_builtin name adata sg   => builtin_or_external_sem name (Some adata) sg
+  | EF_builtin name adata sg   => builtin_or_external_sem name adata sg
   | EF_runtime name sg   => builtin_or_external_sem name None sg
   | EF_vload chunk       => volatile_load_sem chunk
   | EF_vstore chunk      => volatile_store_sem chunk
