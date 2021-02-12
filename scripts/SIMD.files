@@ -1,11 +1,9 @@
 Makefile
 Makefile.config
-VERSION
 backend
 cfrontend
 common
 cparser
-configure
 driver
 extraction
 arm
