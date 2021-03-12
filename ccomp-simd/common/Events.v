@@ -1476,15 +1476,15 @@ Qed.
   We do the same for built-in functions and runtime support functions that
   are not described in [Builtins].
 
-  SIMD support: notice that concrete builtin semantics described in [Builtins]
-  cannot make use of [builtin_data] auxiliary info!
+  SIMD support: notice that [builtin_data] is never relevant for the
+  builtin semantics!
 *)
 
 Parameter external_functions_sem:
- String.string -> option builtin_data -> signature -> extcall_sem.
+ String.string -> signature -> extcall_sem.
 
 Axiom external_functions_properties:
-  forall id adata sg, extcall_properties (external_functions_sem id adata sg) sg.
+  forall id sg, extcall_properties (external_functions_sem id sg) sg.
 
 (** We treat inline assembly similarly. *)
 
@@ -1495,20 +1495,18 @@ Axiom inline_assembly_properties:
 
 (** ** Combined semantics of external calls *)
 
-Definition builtin_or_external_sem name adata sg :=
-  match lookup_builtin_function name sg, adata with
-  | Some bf, None => known_builtin_sem bf
-  | _, _ => external_functions_sem name adata sg
+Definition builtin_or_external_sem name sg :=
+  match lookup_builtin_function name sg with
+  | Some bf => known_builtin_sem bf
+  | _ => external_functions_sem name sg
   end.
 
-Lemma builtin_or_external_sem_ok: forall name adata sg,
-  extcall_properties (builtin_or_external_sem name adata sg) sg.
+Lemma builtin_or_external_sem_ok: forall name sg,
+  extcall_properties (builtin_or_external_sem name sg) sg.
 Proof.
   unfold builtin_or_external_sem; intros. 
   destruct (lookup_builtin_function name sg) as [bf|] eqn:L.
 - exploit lookup_builtin_function_sig; eauto. intros EQ; subst sg.
-  destruct adata.
-  + apply external_functions_properties.
   + apply known_builtin_ok.
 - apply external_functions_properties.
 Qed.
@@ -1526,9 +1524,9 @@ This predicate is used in the semantics of all CompCert languages. *)
 
 Definition external_call (ef: external_function): extcall_sem :=
   match ef with
-  | EF_external name sg  => external_functions_sem name None sg
-  | EF_builtin name adata sg   => builtin_or_external_sem name adata sg
-  | EF_runtime name sg   => builtin_or_external_sem name None sg
+  | EF_external name sg  => external_functions_sem name sg
+  | EF_builtin name adata sg   => builtin_or_external_sem name sg
+  | EF_runtime name sg   => builtin_or_external_sem name sg
   | EF_vload chunk       => volatile_load_sem chunk
   | EF_vstore chunk      => volatile_store_sem chunk
   | EF_malloc            => extcall_malloc_sem
